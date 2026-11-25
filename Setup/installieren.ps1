@@ -1,53 +1,54 @@
-﻿# Ein-Klick-Installation (wird von START.cmd aufgerufen)
+﻿# One-click installation (called by START.cmd)
 Add-Type -AssemblyName System.Windows.Forms
 $ErrorActionPreference = 'Stop'
-$ziel = 'C:\UEK188'
-$quelle = Split-Path $PSScriptRoot
+$target = 'C:\UEK188'
+$source = Split-Path $PSScriptRoot
 $vmw = (Get-ItemProperty 'HKLM:\SOFTWARE\VMware, Inc.\VMware Workstation', 'HKLM:\SOFTWARE\WOW6432Node\VMware, Inc.\VMware Workstation' -ErrorAction SilentlyContinue | Select-Object -First 1).InstallPath
 $vmw = $(if ($vmw) { $vmw.TrimEnd('\') } else { 'C:\Program Files\VMware\VMware Workstation' })
 function Info($t) { Write-Host "`n>> $t" -ForegroundColor Cyan }
 
-# 1. VMware vorhanden?
+# 1. Is VMware installed?
 if (-not (Test-Path "$vmw\vmrun.exe")) {
-    Write-Host 'VMware Workstation fehlt. Bitte zuerst installieren (gratis), dann START.cmd nochmals starten.' -ForegroundColor Red
+    Write-Host 'VMware Workstation is missing. Please install it first (free), then run START.cmd again.' -ForegroundColor Red
     Start-Process 'https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion'
     exit 1
 }
 
-# 2. Schon eine VM da? Nicht ungefragt ueberschreiben (zuerst fragen, dann erst etwas aendern)
-if (Test-Path "$ziel\VM\UEK188-Win11Edu.vmx") {
-    $a = [Windows.Forms.MessageBox]::Show("Es gibt schon eine UEK188-VM.`nNeu bauen? Die alte VM wird dabei GELOESCHT.", 'UeK 188', 'YesNo', 'Warning')
-    if ($a -ne 'Yes') { Write-Host 'Abgebrochen, nichts geaendert.'; exit 0 }
+# 2. Is there already a VM? Never overwrite without asking (ask first, change things afterwards)
+if (Test-Path "$target\VM\UEK188-Win11Edu.vmx") {
+    $a = [Windows.Forms.MessageBox]::Show("There is already a UEK188 VM.`nRebuild it? The old VM will be DELETED.", 'UEK 188', 'YesNo', 'Warning')
+    if ($a -ne 'Yes') { Write-Host 'Cancelled, nothing changed.'; exit 0 }
 }
 
-# 3. Windows-11-ISO waehlen
-Info 'Waehle die Windows-11-ISO-Datei aus ...'
-$dlg = New-Object Windows.Forms.OpenFileDialog -Property @{ Title = 'Windows-11-ISO auswaehlen'; Filter = 'ISO-Datei (*.iso)|*.iso'; InitialDirectory = "$env:USERPROFILE\Downloads" }
-if ($dlg.ShowDialog() -ne 'OK') { Write-Host 'Keine ISO gewaehlt, abgebrochen, nichts geaendert.' -ForegroundColor Red; exit 1 }
+# 3. Choose the Windows 11 ISO
+Info 'Choose the Windows 11 ISO file ...'
+$dlg = New-Object Windows.Forms.OpenFileDialog -Property @{ Title = 'Choose the Windows 11 ISO'; Filter = 'ISO file (*.iso)|*.iso'; InitialDirectory = "$env:USERPROFILE\Downloads" }
+# TopMost owner: otherwise the dialog opens behind the console
+if ($dlg.ShowDialog((New-Object Windows.Forms.Form -Property @{ TopMost = $true })) -ne 'OK') { Write-Host 'No ISO chosen, cancelled, nothing changed.' -ForegroundColor Red; exit 1 }
 
-# 4. Dateien nach C:\UEK188 (das Setup erwartet diesen Ordner)
-if ($quelle -ne $ziel) {
-    Info "Kopiere Dateien nach $ziel ..."
-    New-Item -ItemType Directory $ziel -Force | Out-Null
-    Remove-Item "$ziel\Setup\iso\UEK188" -Recurse -Force -ErrorAction SilentlyContinue  # Rest einer alten Version
-    foreach ($d in 'Lab', 'Setup', 'Unterlagen', 'README.md', 'CHANGELOG.md', 'LICENSE', 'START.cmd') { if (Test-Path "$quelle\$d") { Copy-Item "$quelle\$d" $ziel -Recurse -Force } }
+# 4. Copy files to C:\UEK188 (the setup expects this folder)
+if ($source -ne $target) {
+    Info "Copying files to $target ..."
+    New-Item -ItemType Directory $target -Force | Out-Null
+    Remove-Item "$target\Setup\iso\UEK188" -Recurse -Force -ErrorAction SilentlyContinue  # leftover of an old version
+    foreach ($d in 'Lab', 'Setup', 'Unterlagen', 'README.md', 'CHANGELOG.md', 'LICENSE', 'START.cmd') { if (Test-Path "$source\$d") { Copy-Item "$source\$d" $target -Recurse -Force } }
 }
 
-# 5. VM bauen und starten
-Info 'Baue die VM ...'
-& "$ziel\Setup\vm-erstellen.ps1" -WinIso $dlg.FileName
-Info 'Starte die VM ...'
-& "$vmw\vmrun.exe" -T ws start "$ziel\VM\UEK188-Win11Edu.vmx" gui
+# 5. Build and start the VM
+Info 'Building the VM ...'
+& "$target\Setup\vm-erstellen.ps1" -WinIso $dlg.FileName
+# Shortcut on the computer for the VM buttons (update / reset VM), created before the start so it exists either way
+$lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\Lab Trainer UEK 188 (PC).lnk")
+$lnk.TargetPath = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+$lnk.Arguments = "-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$target\Lab\Lab-Trainer.ps1`""
+$lnk.IconLocation = "$env:WINDIR\System32\imageres.dll,109"; $lnk.Save()
+
+Info 'Starting the VM ...'
+& "$vmw\vmrun.exe" -T ws start "$target\VM\UEK188-Win11Edu.vmx" gui
 if ($LASTEXITCODE) {
-    Write-Host "`nDie VM ist gebaut, liess sich aber nicht starten. Oeffne in VMware: File > Open > $ziel\VM\UEK188-Win11Edu.vmx und klick auf 'Power on'." -ForegroundColor Yellow
+    Write-Host "`nThe VM is built but could not be started. In VMware open: File > Open > $target\VM\UEK188-Win11Edu.vmx and click 'Power on'." -ForegroundColor Yellow
     exit 1
 }
 
-# Verknuepfung auf dem PC fuer die VM-Knoepfe (VM aktualisieren / zuruecksetzen)
-$lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\Lab-Trainer UeK 188 (PC).lnk")
-$lnk.TargetPath = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
-$lnk.Arguments = "-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$ziel\Lab\Lab-Trainer.ps1`""
-$lnk.IconLocation = "$env:WINDIR\System32\imageres.dll,109"; $lnk.Save()
-
-Write-Host "`nFERTIG! Windows installiert sich jetzt in der VM von selbst (ca. 30 Minuten)." -ForegroundColor Green
-Write-Host 'Nichts anklicken, bis der Desktop mit "Lab-Trainer UeK 188" erscheint.' -ForegroundColor Green
+Write-Host "`nDONE! Windows now installs itself in the VM (about 30 minutes)." -ForegroundColor Green
+Write-Host 'Do not click anything until the desktop with "Lab Trainer UEK 188" appears.' -ForegroundColor Green

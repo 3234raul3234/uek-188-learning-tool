@@ -1,35 +1,35 @@
-name: 🐞 Fehler melden
-description: Etwas funktioniert nicht
-title: "[Fehler] "
+name: 🐞 Report a bug
+description: Something does not work
+title: "[Bug] "
 labels: [bug]
 body:
   - type: input
     id: version
     attributes:
       label: Version
-      description: Steht oben im Lab-Trainer, z. B. "Beta 0.2"
+      description: Shown at the top of the Lab Trainer, e.g. "Beta 0.5"
     validations:
       required: true
   - type: input
     id: lab
     attributes:
-      label: Welches Lab?
-      description: Nummer, oder "Installation" / "Lab-Trainer"
+      label: Which lab?
+      description: Number, or "Installation" / "Lab Trainer"
     validations:
       required: true
   - type: textarea
-    id: was
+    id: what
     attributes:
-      label: Was ist passiert?
-      description: Was hast du gemacht, und was ist dann passiert?
+      label: What happened?
+      description: What did you do, and what happened then?
     validations:
       required: true
   - type: textarea
-    id: erwartet
+    id: expected
     attributes:
-      label: Was hättest du erwartet?
+      label: What did you expect?
   - type: textarea
-    id: ausgabe
+    id: output
     attributes:
-      label: Fehlermeldung oder Screenshot
-      description: Text aus dem Lab-Trainer hier einfügen oder ein Bild hineinziehen
+      label: Error message or screenshot
+      description: Paste text from the Lab Trainer here or drag in an image

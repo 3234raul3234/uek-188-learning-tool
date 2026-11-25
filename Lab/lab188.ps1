@@ -1,482 +1,484 @@
-﻿# ÜK 188 Praxis-Labs.  Nutzung: lab188.ps1 list | start <Nr> | check <Nr>
+﻿# UEK 188 practice labs.  Usage: lab188.ps1 list | start <No> | check <No> | doc <No>
 param(
-    [ValidateSet('list', 'start', 'check', 'doku')][string]$Aktion = 'list',
-    [ValidateRange(1, 15)][int]$Nr = 1,
-    [string]$LabPfad = $(if (Test-Path 'C:\UEK188\Uebungen') { 'C:\UEK188\Uebungen' } else { Join-Path $env:USERPROFILE 'Lab188' })
+    [ValidateSet('list', 'start', 'check', 'doc', 'doku')][string]$Action = 'list',
+    [ValidateRange(1, 15)][int]$No = 1,
+    [Alias('LabPfad')][string]$LabPath = $(if (Test-Path 'C:\UEK188\Uebungen') { 'C:\UEK188\Uebungen' } else { Join-Path $env:USERPROFILE 'Lab188' })
 )
 $ErrorActionPreference = 'Stop'
 $script:ok = 0; $script:fail = 0
 $SID_USERS = 'S-1-5-32-545'; $SID_ADMINS = 'S-1-5-32-544'
 $SID_ME = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$docs = 'C:\UEK188\Unterlagen\Hotel Vier Winde.md'
 
-function Pruefe($text, [bool]$bedingung, $tipp) {
-    if ($bedingung) { Write-Host "[OK] $text" -ForegroundColor Green; $script:ok++ }
-    else { Write-Host "[X]  $text" -ForegroundColor Red; if ($tipp) { Write-Host "     Tipp: $tipp" -ForegroundColor Yellow }; $script:fail++ }
+function Check($text, [bool]$condition, $hint) {
+    if ($condition) { Write-Host "[OK] $text" -ForegroundColor Green; $script:ok++ }
+    else { Write-Host "[X]  $text" -ForegroundColor Red; if ($hint) { Write-Host "     Hint: $hint" -ForegroundColor Yellow }; $script:fail++ }
 }
 
-# Summe aller "Zulassen"-Rechte einer SID auf einem Pfad (als int)
-function Rechte($pfad, $sid) {
+# Sum of all "Allow" rights of a SID on a path (as int)
+function Rights($path, $sid) {
     $r = 0
-    foreach ($a in (Get-Acl $pfad).Access) {
+    foreach ($a in (Get-Acl $path).Access) {
         if ($a.AccessControlType -ne 'Allow') { continue }
         try { $s = $a.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value } catch { continue }
         if ($s -eq $sid) { $r = $r -bor [int]$a.FileSystemRights }
     }
     $r
 }
-function Hat([int]$r, $recht) { $m = [int][Security.AccessControl.FileSystemRights]::$recht; ($r -band $m) -eq $m }
-function LiesCsv($pfad) { $kopf = Get-Content $pfad -TotalCount 1; if ($kopf -match ';' -and $kopf -notmatch ',') { Import-Csv $pfad -Delimiter ';' } else { Import-Csv $pfad } }  # Excel speichert mit ;
-function Inhalt($name) { $f = Join-Path $dir $name; if (Test-Path $f) { Get-Content $f -Raw } else { '' } }
-function IstWahr($wert) { "$wert" -match '^(true|ja|wahr|1)$' }
-function PortOffen($ziel, $port) { $c = New-Object Net.Sockets.TcpClient; try { $c.ConnectAsync($ziel, $port).Wait(2000) -and $c.Connected } catch { $false } finally { $c.Dispose() } }
+function Has([int]$r, $right) { $m = [int][Security.AccessControl.FileSystemRights]::$right; ($r -band $m) -eq $m }
+function ReadCsv($path) { $head = Get-Content $path -TotalCount 1; if ($head -match ';' -and $head -notmatch ',') { Import-Csv $path -Delimiter ';' } else { Import-Csv $path } }  # Excel saves with ;
+function Content($name) { $f = Join-Path $dir $name; if (Test-Path $f) { Get-Content $f -Raw } else { '' } }
+function IsTrue($value) { "$value" -match '^(true|yes|1)$' }
+function PortOpen($target, $port) { $c = New-Object Net.Sockets.TcpClient; try { $c.ConnectAsync($target, $port).Wait(2000) -and $c.Connected } catch { $false } finally { $c.Dispose() } }
 
 $Labs = @{
-    1 = @{ Titel = 'NTFS-Berechtigungen nach Konzept (HZ 5)'; Auftrag = @"
-Berechtigungskonzept Firma Muster AG, Ordner: L1\Firma
-  Buchhaltung : Vererbung DEAKTIVIERT. Administratoren = Vollzugriff, DU = Ändern (nicht Vollzugriff), Benutzer = kein Zugriff
-  Verkauf     : Benutzer (Users) = Lesen und Ausführen, aber KEIN Schreiben
-  Alle        : Benutzer (Users) = Ändern
-Dokumentiere alles als Tabelle in L1\berechtigungen.md (Ordner | Gruppe | Recht | Begründung).
-Werkzeuge: Explorer > Eigenschaften > Sicherheit, oder icacls / Get-Acl / Set-Acl
+    1 = @{ Title = 'NTFS permissions by concept (OBJ 5)'; Task = @"
+Permission concept of Example Ltd, folder: L1\Company
+  Accounting : inheritance DISABLED. Administrators = Full control, YOU = Modify (not Full control), Users = no access
+  Sales      : Users = Read & execute, but NO write
+  All        : Users = Modify
+Document everything as a table in L1\permissions.md (Folder | Group | Right | Reason).
+Tools: Explorer > Properties > Security, or icacls / Get-Acl / Set-Acl
 "@
     }
-    2 = @{ Titel = 'Dienste analysieren (HZ 1, 2)'; Auftrag = @"
-Ein Server macht Probleme. Finde alle Dienste mit Starttyp 'Automatic', die NICHT laufen.
-  1. Exportiere sie nach L2\dienste.csv mit den Spalten Name, DisplayName, Status (PowerShell!)
-  2. Schreib in L2\notiz.md zu einem dieser Dienste: was er macht und warum er evtl. gestoppt ist.
-Tipp: Get-Service, Where-Object, Select-Object, Export-Csv -NoTypeInformation
+    2 = @{ Title = 'Analyse services (OBJ 1, 2)'; Task = @"
+A server has problems. Find all services with start type 'Automatic' that are NOT running.
+  1. Export them to L2\services.csv with the columns Name, DisplayName, Status (use PowerShell!)
+  2. In L2\notes.md, write about one of these services: what it does and why it might be stopped.
+Hint: Get-Service, Where-Object, Select-Object, Export-Csv -NoTypeInformation
 "@
     }
-    3 = @{ Titel = 'Monitoring-Skript mit Schwellwert (HZ 4)'; Auftrag = @"
-Schreib L3\monitor.ps1. Jeder Aufruf hängt EINE Zeile an L3\monitor.csv an (neben dem Skript, `$PSScriptRoot).
-  Spalten: Zeit, CPU (Auslastung in %), RAMFreiMB, CFreiGB, Status
-  Parameter: -SchwelleGB (Standard 20). Status = 'WARNUNG' wenn CFreiGB < SchwelleGB, sonst 'OK'
-Der Check startet dein Skript selbst und vergleicht die Werte mit dem echten System.
-Tipp: Get-CimInstance Win32_Processor / Win32_OperatingSystem, Get-PSDrive C, Export-Csv -Append
+    3 = @{ Title = 'Monitoring script with threshold (OBJ 4)'; Task = @"
+Write L3\monitor.ps1. Each run appends ONE line to L3\monitor.csv (next to the script, `$PSScriptRoot).
+  Columns: Time, CPU (load in %), RAMFreeMB, CFreeGB, Status
+  Parameter: -ThresholdGB (default 20). Status = 'WARNING' if CFreeGB < ThresholdGB, otherwise 'OK'
+The check runs your script itself and compares the values with the real system.
+Hint: Get-CimInstance Win32_Processor / Win32_OperatingSystem, Get-PSDrive C, Export-Csv -Append
 "@
     }
-    4 = @{ Titel = 'Patch-Dokumentation (HZ 3)'; Auftrag = @"
-Führe die Betriebsdoku nach: Erstelle L4\patches.md mit
-  - einer Tabelle aller installierten Updates (KB | Beschreibung | Installiert am)
-  - der Zeile 'Letztes Update: KBxxxxxxx'
-Tipp: Get-HotFix | Sort-Object InstalledOn
+    4 = @{ Title = 'Patch documentation (OBJ 3)'; Task = @"
+Update the operations documentation: create L4\patches.md with
+  - a table of all installed updates (KB | Description | Installed on)
+  - the line 'Last update: KBxxxxxxx'
+Hint: Get-HotFix | Sort-Object InstalledOn
 "@
     }
-    5 = @{ Titel = 'System-Steckbrief für die Betriebsdoku (HZ 1)'; Auftrag = @"
-Wie beim Hotel Vier Winde: Bevor du etwas änderst, nimmst du das System auf.
-Erstelle L5\steckbrief.md über DEINEN PC mit diesen Zeilen:
+    5 = @{ Title = 'System profile for the operations docs (OBJ 1)'; Task = @"
+Like at Hotel Vier Winde: before you change anything, you document the system.
+Create L5\profile.md about YOUR computer with these lines:
   Hostname: ...
-  Betriebssystem: ...   (z. B. Windows 11 Pro)
+  Operating system: ...   (e.g. Windows 11 Pro)
   IPv4: ...
   Gateway: ...
   DNS: ...
   RAM GB: ...
-Der Check vergleicht alles mit dem echten System.
-Tipp: hostname, ipconfig /all, Get-NetIPAddress, Get-NetRoute, Get-CimInstance Win32_OperatingSystem / Win32_ComputerSystem
+The check compares everything with the real system.
+Hint: hostname, ipconfig /all, Get-NetIPAddress, Get-NetRoute, Get-CimInstance Win32_OperatingSystem / Win32_ComputerSystem
 "@
     }
-    6 = @{ Titel = 'Netzwerk und Remotezugriff testen (HZ 2)'; Auftrag = @"
-Prüfe, welche Dienste erreichbar sind. Teste diese 4 Ziele:
-  www.microsoft.com Port 443  |  1.1.1.1 Port 53  |  localhost Port 3389  |  localhost Port 445
-  1. Speichere das Ergebnis in L6\netztest.csv mit den Spalten Ziel, Port, Erreichbar (True/False)
-  2. Erkläre in L6\notiz.md: Welcher Dienst läuft auf Port 3389 und welcher auf Port 445?
-Tipp: Test-NetConnection -ComputerName <Ziel> -Port <Port>  ->  TcpTestSucceeded
+    6 = @{ Title = 'Test network and remote access (OBJ 2)'; Task = @"
+Check which services are reachable. Test these 4 targets:
+  www.microsoft.com port 443  |  1.1.1.1 port 53  |  localhost port 3389  |  localhost port 445
+  1. Save the result in L6\nettest.csv with the columns Target, Port, Reachable (True/False)
+  2. Explain in L6\notes.md: which service runs on port 3389 and which on port 445?
+Hint: Test-NetConnection -ComputerName <Target> -Port <Port>  ->  TcpTestSucceeded
 "@
     }
-    7 = @{ Titel = 'Ereignisanzeige auswerten (HZ 2, 4)'; Auftrag = @"
-Überwachung Windows: Finde die letzten 10 FEHLER im System-Protokoll.
-  1. Exportiere sie nach L7\fehler.csv mit den Spalten TimeCreated, Id, ProviderName
-  2. Schreib in L7\notiz.md: Welche Quelle (ProviderName) kommt am häufigsten vor und was bedeutet der Fehler?
-Tipp: Get-WinEvent -FilterHashtable @{ LogName = 'System'; Level = 2 } -MaxEvents 10
+    7 = @{ Title = 'Evaluate the Event Viewer (OBJ 2, 4)'; Task = @"
+Windows monitoring: find the last 10 ERRORS in the System log.
+  1. Export them to L7\errors.csv with the columns TimeCreated, Id, ProviderName
+  2. In L7\notes.md: which source (ProviderName) appears most often and what does the error mean?
+Hint: Get-WinEvent -FilterHashtable @{ LogName = 'System'; Level = 2 } -MaxEvents 10
 "@
     }
-    8 = @{ Titel = 'Lokale Benutzer und Administratoren (HZ 5)'; Auftrag = @"
-Auf ws01 darf nur das lokale Administratorkonto aktiv sein. Prüfe, wie es auf deinem PC aussieht.
-  1. Exportiere ALLE lokalen Benutzer nach L8\benutzer.csv mit den Spalten Name, Aktiv, Admin
-     (Aktiv = True/False, Admin = True/False: ist der Benutzer in der Gruppe Administratoren?)
-  2. Schreib in L8\notiz.md: Welche Konten müsstest du deaktivieren, damit wie auf ws01 nur der Administrator aktiv ist?
-Tipp: Get-LocalUser, Get-LocalGroupMember -SID S-1-5-32-544
+    8 = @{ Title = 'Local users and administrators (OBJ 5)'; Task = @"
+On ws01, only the local Administrator account may be enabled. Check how it looks on your computer.
+  1. Export ALL local users to L8\users.csv with the columns Name, Enabled, Admin
+     (Enabled = True/False, Admin = True/False: is the user in the Administrators group?)
+  2. In L8\notes.md: which accounts would you have to disable so that, like on ws01, only Administrator is enabled?
+Hint: Get-LocalUser, Get-LocalGroupMember -SID S-1-5-32-544
 "@
     }
-    9 = @{ Titel = 'Software-Inventar (HZ 3)'; Auftrag = @"
-Software-Unterhalt beginnt mit einem Inventar.
-  1. Exportiere alle installierten Programme nach L9\software.csv mit den Spalten DisplayName, DisplayVersion, Publisher
-     (ohne Einträge ohne DisplayName)
-  2. Schreib in L9\notiz.md: Such dir 3 Programme aus und prüfe im Internet, ob deine Version aktuell ist.
-Tipp: Die Programme stehen in der Registry unter
+    9 = @{ Title = 'Software inventory (OBJ 3)'; Task = @"
+Software maintenance starts with an inventory.
+  1. Export all installed programs to L9\software.csv with the columns DisplayName, DisplayVersion, Publisher
+     (without entries that have no DisplayName)
+  2. In L9\notes.md: pick 3 programs and check online whether your version is up to date.
+Hint: the programs are listed in the registry under
   HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*
   HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*
   HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*
 "@
     }
-    10 = @{ Titel = 'Checklisten titan und ws01 (HZ 1)'; Auftrag = @"
-Plane die Einrichtung der zwei VMs des Hotels als Checklisten. Der Check prüft, ob sie vollständig sind.
-  Erstelle L10\checkliste-titan.md und L10\checkliste-ws01.md (mit Kästchen, z. B. '- [ ] Aufgabe')
-  Infos: C:\UEK188\Unterlagen\Hotel Vier Winde.md (Netz, Systeme, Drucker, Tools)
-Denk an: VM-Einstellungen (RAM, CPU, Netzwerkadapter), Gasterweiterungen, Name, IP-Konfiguration,
-Updates, Druckerserver mit Freigabe pr-office, nur lokales Administratorkonto auf ws01, Tools, Kontrolle, ...
+    10 = @{ Title = 'Checklists titan and ws01 (OBJ 1)'; Task = @"
+Plan the setup of the hotel's two VMs as checklists. The check tests whether they are complete.
+  Create L10\checklist-titan.md and L10\checklist-ws01.md (with checkboxes, e.g. '- [ ] Task')
+  Information: $docs (network, systems, printer, tools)
+Think of: VM settings (RAM, CPU, network adapter), guest additions/VMware Tools, name, IP configuration,
+updates, print server with share pr-office, only the local Administrator account on ws01, tools, testing, ...
 "@
     }
-    11 = @{ Titel = 'Dienst Druckwarteschlange untersuchen (HZ 1, 2)'; Auftrag = @"
-Für den Drucker pr-office braucht titan den Dienst Druckwarteschlange (Spooler). Untersuche ihn auf deinem PC.
-Erstelle L11\spooler.md mit:
-  - Anzeigename, Starttyp und Status des Dienstes
-  - von welchen Diensten er abhängt
-  - Pfad der Programmdatei (.exe)
-  - warum der Spooler ein Sicherheitsrisiko sein kann (Stichwort: PrintNightmare)
-Tipp: Get-Service Spooler | Format-List *, Get-CimInstance Win32_Service -Filter "Name='Spooler'"
+    11 = @{ Title = 'Investigate the Print Spooler service (OBJ 1, 2)'; Task = @"
+For the printer pr-office, titan needs the Print Spooler service (Spooler). Investigate it on your computer.
+Create L11\spooler.md with:
+  - display name, start type and status of the service
+  - which services it depends on
+  - path of the program file (.exe)
+  - why the spooler can be a security risk (keyword: PrintNightmare)
+Hint: Get-Service Spooler | Format-List *, Get-CimInstance Win32_Service -Filter "Name='Spooler'"
 "@
     }
-    12 = @{ Titel = 'Monitoring automatisieren (HZ 4, d1)'; Auftrag = @"
-Dein Monitoring-Skript aus Lab 3 soll automatisch laufen.
-  Erstelle eine geplante Aufgabe mit dem Namen  Lab188-Monitor
-  - startet powershell.exe mit deinem L3\monitor.ps1
-  - wiederholt sich alle 15 Minuten
-Voraussetzung: Lab 3 ist gelöst.
-Tipp: New-ScheduledTaskAction, New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 15), Register-ScheduledTask
-Aufräumen, wenn du fertig bist:  Unregister-ScheduledTask Lab188-Monitor
+    12 = @{ Title = 'Automate monitoring (OBJ 4, d1)'; Task = @"
+Your monitoring script from Lab 3 should run automatically.
+  Create a scheduled task named  Lab188-Monitor
+  - it starts powershell.exe with your L3\monitor.ps1
+  - it repeats every 15 minutes
+Prerequisite: Lab 3 is solved.
+Hint: New-ScheduledTaskAction, New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 15), Register-ScheduledTask
+Clean up when you are done:  Unregister-ScheduledTask Lab188-Monitor
 "@
     }
-    13 = @{ Titel = 'Subnetting Hotel Vier Winde (HZ 1)'; Auftrag = @"
-Das Hotel Vier Winde will ein Gäste-WLAN mit dem Netz 10.20.30.0/23. Rechne selbst (ohne Rechner im Internet)!
-Erstelle L13\netz.md mit genau diesen Zeilen:
-  Subnetzmaske: ...
-  Netzadresse: ...
+    13 = @{ Title = 'Subnetting Hotel Vier Winde (OBJ 1)'; Task = @"
+Hotel Vier Winde wants a guest Wi-Fi with the network 10.20.30.0/23. Calculate it yourself (no online calculator)!
+Create L13\network.md with exactly these lines:
+  Subnet mask: ...
+  Network address: ...
   Broadcast: ...
-  Erster Host: ...
-  Letzter Host: ...
-  Anzahl Hosts: ...
-Und zwei Fragen zum bestehenden Hotelnetz 172.18.20.64/26 (C:\UEK188\Unterlagen\Hotel Vier Winde.md):
-  Hotel DHCP-Adressen: ...        (wie viele Adressen hat der Bereich .66 bis .115?)
-  172.18.20.130 im Hotelnetz: Ja/Nein
+  First host: ...
+  Last host: ...
+  Number of hosts: ...
+And two questions about the existing hotel network 172.18.20.64/26 ($docs):
+  Hotel DHCP addresses: ...        (how many addresses does the range .66 to .115 have?)
+  172.18.20.130 in hotel network: Yes/No
 "@
     }
-    14 = @{ Titel = 'Berechtigungsmatrix Hotel Vier Winde (HZ 5)'; Auftrag = @"
-Vorbereitung für Tag 3 (Benutzer, Gruppen, Permissions): Übertrage die Tabelle 'Serverfreigaben und
-Berechtigungen' aus C:\UEK188\Unterlagen\Hotel Vier Winde.md in L14\berechtigungen.csv mit den Spalten Freigabe, Abteilung, Recht
-  - eine Zeile pro Freigabe und Abteilung, die Rechte hat (keine Zeilen für '-')
-  - Freigaben: Austausch, Front-office, BO, Administration, Conv, FOBE, Saal, Bar, Sitzungen, Büros, pr-office
-  - Abteilungen: Geschäftsleitung, Administration, Front-Office, Back-Office, Food & Beverage, Convention, Housekeeping, Technik
-  - Recht: L,S oder D (wie in der Tabelle)
-In L14\notiz.md: Wie setzt du die Freigabe 'Austausch' mit AGDLP um? (Welche globalen und domänenlokalen Gruppen?)
-Kommt dir in der Tabelle etwas komisch vor? Notier es auch, Fehler in der Doku finden ist Teil vom Job.
+    14 = @{ Title = 'Permission matrix Hotel Vier Winde (OBJ 5)'; Task = @"
+Preparation for day 3 (users, groups, permissions): transfer the table 'Server shares and permissions'
+from $docs into L14\permissions.csv with the columns Share, Department, Right
+  - one line per share and department that has rights (no lines for '-')
+  - shares: Exchange, Front-office, BO, Administration, Conv, FOBE, Hall, Bar, Meetings, Offices, pr-office
+  - departments: Management, Administration, Front Office, Back Office, Food & Beverage, Convention, Housekeeping, Technical
+  - right: R,W or P (as in the table)
+In L14\notes.md: how do you implement the share 'Exchange' with AGDLP? (Which global and domain local groups?)
+Does anything in the table look strange? Write it down too: finding errors in documentation is part of the job.
 "@
     }
-    15 = @{ Titel = 'Logins in der Betriebsdoku prüfen (HZ 1, 5)'; Auftrag = @"
-Bevor du die Benutzer im AD anlegst, prüfst du die Benutzerliste in C:\UEK188\Unterlagen\Hotel Vier Winde.md.
-Die Regel für Logins: 3 Buchstaben Vorname + 3 Buchstaben Nachname, alles klein,
-ä/ö/ü = ae/oe/ue, Leerzeichen weglassen. Beispiel: Gerhard Bär -> gerbae
-  1. Erfasse alle Benutzer in L15\benutzer.csv mit den Spalten Vorname, Nachname, Login, Abteilung
-  2. Schreib ein Skript L15\pruefen.ps1, das für jede Zeile das Soll-Login nach der Regel berechnet
-  3. Schreib alle Logins aus der Doku, die NICHT der Regel entsprechen, in L15\abweichungen.txt (eins pro Zeile, wie in der Doku geschrieben)
-Tipp: .Substring(0,3), .ToLower(), -replace 'ä','ae'
+    15 = @{ Title = 'Check the logins in the operations docs (OBJ 1, 5)'; Task = @"
+Before you create the users in AD, you check the user list in $docs.
+The rule for logins: first 3 letters of the first name + first 3 letters of the last name, all lower case,
+ä/ö/ü = ae/oe/ue, leave out spaces. Example: Gerhard Bär -> gerbae
+  1. Enter all users in L15\users.csv with the columns FirstName, LastName, Login, Department
+  2. Write a script L15\check.ps1 that calculates the expected login for every line according to the rule
+  3. Write all logins from the docs that do NOT follow the rule into L15\deviations.txt (one per line, spelled as in the docs)
+Hint: .Substring(0,3), .ToLower(), -replace 'ä','ae'
 "@
     }
 }
 
-$dir = Join-Path $LabPfad "L$Nr"
+$dir = Join-Path $LabPath "L$No"
 
-if ($Aktion -eq 'list') {
-    foreach ($n in $Labs.Keys | Sort-Object) { Write-Host "$n  $($Labs[$n].Titel)" }
+if ($Action -eq 'list') {
+    foreach ($n in $Labs.Keys | Sort-Object) { Write-Host "$n  $($Labs[$n].Title)" }
     return
 }
 
-if ($Aktion -eq 'start') {
-    if (Test-Path $dir) { Write-Host "Lab $Nr existiert schon in $dir (wird nicht überschrieben)." -ForegroundColor Yellow }
+if ($Action -eq 'start') {
+    if (Test-Path $dir) { Write-Host "Lab $No already exists in $dir (not overwritten)." -ForegroundColor Yellow }
     else {
         New-Item -ItemType Directory $dir | Out-Null
-        if ($Nr -eq 1) { 'Buchhaltung', 'Verkauf', 'Alle' | ForEach-Object { New-Item -ItemType Directory (Join-Path $dir "Firma\$_") | Out-Null } }
-        Set-Content (Join-Path $dir 'Auftrag.txt') $Labs[$Nr].Auftrag
+        if ($No -eq 1) { 'Accounting', 'Sales', 'All' | ForEach-Object { New-Item -ItemType Directory (Join-Path $dir "Company\$_") | Out-Null } }
+        Set-Content (Join-Path $dir 'Task.txt') $Labs[$No].Task
     }
-    Write-Host "`n=== Lab $Nr - $($Labs[$Nr].Titel) ===  Ordner: $LabPfad`n" -ForegroundColor Cyan
-    Write-Host $Labs[$Nr].Auftrag
-    $extra = if ($PSBoundParameters.ContainsKey('LabPfad')) { ' -LabPfad "' + $LabPfad + '"' } else { '' }
-    Write-Host "`nFertig? ->  lab188.ps1 check $Nr$extra" -ForegroundColor Cyan
+    Write-Host "`n=== Lab $No - $($Labs[$No].Title) ===  Folder: $LabPath`n" -ForegroundColor Cyan
+    Write-Host $Labs[$No].Task
+    $extra = if ($PSBoundParameters.ContainsKey('LabPath')) { ' -LabPath "' + $LabPath + '"' } else { '' }
+    Write-Host "`nDone? ->  lab188.ps1 check $No$extra" -ForegroundColor Cyan
     return
 }
 
-if ($Aktion -eq 'doku') {
-    # Fertiger Abschnitt für die eigene Dokumentation
-    if (-not (Test-Path $dir)) { Write-Host "Lab $Nr nicht gestartet." -ForegroundColor Red; exit 1 }
-    $pruef = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath check $Nr -LabPfad $LabPfad 2>&1 | ForEach-Object { "$_" }
-    $md = @("## Lab $Nr – $($Labs[$Nr].Titel)", '', "*$(Get-Date -Format 'dd.MM.yyyy HH:mm') auf $env:COMPUTERNAME*", '', '### Auftrag', '```', $Labs[$Nr].Auftrag.Trim(), '```', '', '### Meine Lösung')
-    if ($Nr -eq 1) {
-        $md += '**Berechtigungen**', '', '| Ordner | Wer | Recht | Vererbt |', '|---|---|---|---|'
-        foreach ($o in Get-ChildItem (Join-Path $dir 'Firma') -Directory) { foreach ($a in (Get-Acl $o.FullName).Access) { $md += "| $($o.Name) | $($a.IdentityReference) | $($a.FileSystemRights) | $(if ($a.IsInherited) { 'ja' } else { 'nein' }) |" } }
+if ($Action -in 'doc', 'doku') {
+    # Ready-made section for your own documentation
+    if (-not (Test-Path $dir)) { Write-Host "Lab $No not started." -ForegroundColor Red; exit 1 }
+    $result = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath check $No -LabPath $LabPath 2>&1 | ForEach-Object { "$_" }
+    $md = @("## Lab $No – $($Labs[$No].Title)", '', "*$(Get-Date -Format 'dd.MM.yyyy HH:mm') on $env:COMPUTERNAME*", '', '### Task', '```', $Labs[$No].Task.Trim(), '```', '', '### My solution')
+    if ($No -eq 1) {
+        $md += '**Permissions**', '', '| Folder | Who | Right | Inherited |', '|---|---|---|---|'
+        foreach ($o in Get-ChildItem (Join-Path $dir 'Company') -Directory) { foreach ($a in (Get-Acl $o.FullName).Access) { $md += "| $($o.Name) | $($a.IdentityReference) | $($a.FileSystemRights) | $(if ($a.IsInherited) { 'yes' } else { 'no' }) |" } }
         $md += ''
     }
-    if ($Nr -eq 12) { $md += '**Geplante Aufgabe**', '```', (Get-ScheduledTask Lab188-Monitor -ErrorAction SilentlyContinue | ForEach-Object { "$($_.TaskName): $($_.Actions[0].Execute) $($_.Actions[0].Arguments) / Intervall $($_.Triggers[0].Repetition.Interval)" }), '```', '' }
-    foreach ($f in Get-ChildItem $dir -Recurse -File | Where-Object Name -NotIn 'Auftrag.txt', '.bestanden') {
-        $md += "**$($f.FullName.Substring($dir.Length + 1))**", '```', ((Get-Content $f.FullName -TotalCount 40) -join "`n"), '```', ''
+    if ($No -eq 12) { $md += '**Scheduled task**', '```', (Get-ScheduledTask Lab188-Monitor -ErrorAction SilentlyContinue | ForEach-Object { "$($_.TaskName): $($_.Actions[0].Execute) $($_.Actions[0].Arguments) / interval $($_.Triggers[0].Repetition.Interval)" }), '```', '' }
+    foreach ($f in Get-ChildItem $dir -Recurse -File | Where-Object Name -NotIn 'Task.txt', 'Auftrag.txt', '.passed', '.bestanden') {
+        $md += "**$($f.FullName.Substring($dir.Length + 1))**", '```', ((Get-Content $f.FullName -TotalCount 40 -Encoding UTF8) -join "`n"), '```', ''
     }
-    $md += '### Ergebnis der Kontrolle', '```'
-    $md += @($pruef | Where-Object { $_ -match '^\[|Ergebnis|Tipp' })
-    $md += '```', '', '### Was ich gelernt habe', '- ', ''
-    $ziel = Join-Path $LabPfad ('Doku\Lab-{0:D2}.md' -f $Nr)
-    New-Item -ItemType Directory (Split-Path $ziel) -Force | Out-Null
-    [IO.File]::WriteAllText($ziel, ($md -join "`r`n"), (New-Object Text.UTF8Encoding $true))
-    Write-Host "Doku gespeichert: $ziel"
+    $md += '### Result of the check', '```'
+    $md += @($result | Where-Object { $_ -match '^\[|Result|Hint' })
+    $md += '```', '', '### What I learned', '- ', ''
+    $target = Join-Path $LabPath ('Doku\Lab-{0:D2}.md' -f $No)
+    New-Item -ItemType Directory (Split-Path $target) -Force | Out-Null
+    [IO.File]::WriteAllText($target, ($md -join "`r`n"), (New-Object Text.UTF8Encoding $true))
+    Write-Host "Doc saved: $target"
     return
 }
 
 # check
-if (-not (Test-Path $dir)) { Write-Host "Lab $Nr nicht gestartet. Zuerst: lab188.ps1 start $Nr" -ForegroundColor Red; exit 1 }
-Write-Host "`n=== Check Lab $Nr - $($Labs[$Nr].Titel) ===`n" -ForegroundColor Cyan
+if (-not (Test-Path $dir)) { Write-Host "Lab $No not started. First: lab188.ps1 start $No" -ForegroundColor Red; exit 1 }
+Write-Host "`n=== Check Lab $No - $($Labs[$No].Title) ===`n" -ForegroundColor Cyan
 
-switch ($Nr) {
+switch ($No) {
     1 {
-        $b = Join-Path $dir 'Firma\Buchhaltung'; $v = Join-Path $dir 'Firma\Verkauf'; $a = Join-Path $dir 'Firma\Alle'
-        Pruefe 'Buchhaltung: Vererbung deaktiviert' (Get-Acl $b).AreAccessRulesProtected 'Erweitert > Vererbung deaktivieren (Rechte übernehmen)'
-        Pruefe 'Buchhaltung: Administratoren Vollzugriff' (Hat (Rechte $b $SID_ADMINS) 'FullControl')
-        $me = Rechte $b $SID_ME
-        Pruefe 'Buchhaltung: du hast Ändern' (Hat $me 'Modify')
-        Pruefe 'Buchhaltung: du hast NICHT Vollzugriff (Least Privilege)' (-not (Hat $me 'FullControl')) 'Dein Eintrag: Vollzugriff weg, nur Ändern'
-        Pruefe 'Buchhaltung: Benutzer kein Zugriff' ((Rechte $b $SID_USERS) -eq 0)
-        $vu = Rechte $v $SID_USERS
-        Pruefe 'Verkauf: Benutzer Lesen und Ausführen' (Hat $vu 'ReadAndExecute') 'Gruppe "Benutzer" hinzufügen'
-        Pruefe 'Verkauf: Benutzer KEIN Schreiben' (-not (Hat $vu 'WriteData'))
-        Pruefe 'Alle: Benutzer Ändern' (Hat (Rechte $a $SID_USERS) 'Modify')
-        $doc = Join-Path $dir 'berechtigungen.md'
-        Pruefe 'Doku berechtigungen.md mit allen 3 Ordnern' ((Test-Path $doc) -and ((Get-Content $doc -Raw) -match 'Buchhaltung' -and (Get-Content $doc -Raw) -match 'Verkauf' -and (Get-Content $doc -Raw) -match 'Alle'))
+        $b = Join-Path $dir 'Company\Accounting'; $v = Join-Path $dir 'Company\Sales'; $a = Join-Path $dir 'Company\All'
+        Check 'Accounting: inheritance disabled' (Get-Acl $b).AreAccessRulesProtected 'Advanced > Disable inheritance (convert inherited permissions)'
+        Check 'Accounting: Administrators full control' (Has (Rights $b $SID_ADMINS) 'FullControl')
+        $me = Rights $b $SID_ME
+        Check 'Accounting: you have Modify' (Has $me 'Modify')
+        Check 'Accounting: you do NOT have full control (least privilege)' (-not (Has $me 'FullControl')) 'Your entry: remove full control, keep Modify only'
+        Check 'Accounting: Users no access' ((Rights $b $SID_USERS) -eq 0)
+        $vu = Rights $v $SID_USERS
+        Check 'Sales: Users read & execute' (Has $vu 'ReadAndExecute') 'Add the group "Users"'
+        Check 'Sales: Users NO write' (-not (Has $vu 'WriteData'))
+        Check 'All: Users modify' (Has (Rights $a $SID_USERS) 'Modify')
+        $doc = Content 'permissions.md'
+        Check 'Documentation permissions.md with all 3 folders' ($doc -match 'Accounting' -and $doc -match 'Sales' -and $doc -match 'All')
     }
     2 {
-        $csv = Join-Path $dir 'dienste.csv'
-        Pruefe 'dienste.csv existiert' (Test-Path $csv) 'Export-Csv -Path ... -NoTypeInformation'
+        $csv = Join-Path $dir 'services.csv'
+        Check 'services.csv exists' (Test-Path $csv) 'Export-Csv -Path ... -NoTypeInformation'
         if (Test-Path $csv) {
-            $ist = @(LiesCsv $csv)
-            $spalten = if ($ist.Count) { $ist[0].PSObject.Properties.Name } else { @() }
-            Pruefe 'Spalten Name, DisplayName, Status' (('Name', 'DisplayName', 'Status' | Where-Object { $spalten -notcontains $_ }).Count -eq 0) 'Select-Object Name, DisplayName, Status'
-            $soll = @(Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.StartType -eq 'Automatic' -and $_.Status -ne 'Running' } | ForEach-Object Name)
-            $istN = @($ist | ForEach-Object Name)
-            # shortcut: Dienste ändern ihren Zustand laufend, darum 2 Abweichungen Toleranz
-            $fehlt = @($soll | Where-Object { $istN -notcontains $_ }); $zuviel = @($istN | Where-Object { $soll -notcontains $_ })
-            Pruefe "Richtige Dienste ($($soll.Count) erwartet, $($istN.Count) gefunden)" ($fehlt.Count -le 2 -and $zuviel.Count -le 2) "Fehlt z. B.: $($fehlt | Select-Object -First 3) / zu viel: $($zuviel | Select-Object -First 3)"
+            $is = @(ReadCsv $csv)
+            $cols = if ($is.Count) { $is[0].PSObject.Properties.Name } else { @() }
+            Check 'Columns Name, DisplayName, Status' (('Name', 'DisplayName', 'Status' | Where-Object { $cols -notcontains $_ }).Count -eq 0) 'Select-Object Name, DisplayName, Status'
+            $should = @(Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.StartType -eq 'Automatic' -and $_.Status -ne 'Running' } | ForEach-Object Name)
+            $isN = @($is | ForEach-Object Name)
+            # shortcut: services change state all the time, so 2 differences are tolerated
+            $missing = @($should | Where-Object { $isN -notcontains $_ }); $extra = @($isN | Where-Object { $should -notcontains $_ })
+            Check "Correct services ($($should.Count) expected, $($isN.Count) found)" ($missing.Count -le 2 -and $extra.Count -le 2) "Missing e.g.: $($missing | Select-Object -First 3) / too many: $($extra | Select-Object -First 3)"
         }
-        Pruefe 'notiz.md mit Erklärung' ((Test-Path (Join-Path $dir 'notiz.md')) -and (Get-Item (Join-Path $dir 'notiz.md')).Length -gt 50) 'Mindestens 2-3 Sätze'
+        Check 'notes.md with explanation' ((Content 'notes.md').Length -gt 50) 'At least 2-3 sentences'
     }
     3 {
         $s = Join-Path $dir 'monitor.ps1'; $csv = Join-Path $dir 'monitor.csv'
-        Pruefe 'monitor.ps1 existiert' (Test-Path $s)
+        Check 'monitor.ps1 exists' (Test-Path $s)
         if (Test-Path $s) {
-            Remove-Item $csv -ErrorAction SilentlyContinue  # Check startet mit leerer CSV
+            Remove-Item $csv -ErrorAction SilentlyContinue  # check starts with an empty CSV
             $ErrorActionPreference = 'Continue'
             & powershell -NoProfile -ExecutionPolicy Bypass -File $s
             & powershell -NoProfile -ExecutionPolicy Bypass -File $s
-            & powershell -NoProfile -ExecutionPolicy Bypass -File $s -SchwelleGB 999999
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $s -ThresholdGB 999999
             $ErrorActionPreference = 'Stop'
-            $rows = @(if (Test-Path $csv) { LiesCsv $csv })
-            Pruefe '3 Aufrufe = 3 Zeilen in monitor.csv' ($rows.Count -eq 3) 'Export-Csv -Append, Pfad mit $PSScriptRoot'
+            $rows = @(if (Test-Path $csv) { ReadCsv $csv })
+            Check '3 runs = 3 lines in monitor.csv' ($rows.Count -eq 3) 'Export-Csv -Append, path with $PSScriptRoot'
             if ($rows.Count -ge 3) {
                 $r = $rows[0]
-                $ramEcht = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1KB
-                $cEcht = (Get-PSDrive C).Free / 1GB
-                Pruefe 'Spalten Zeit, CPU, RAMFreiMB, CFreiGB, Status' (($null -ne $r.Zeit) -and ($null -ne $r.CPU) -and ($null -ne $r.RAMFreiMB) -and ($null -ne $r.CFreiGB) -and ($null -ne $r.Status))
-                $cpu = $r.CPU -as [double]; $ram = $r.RAMFreiMB -replace ',', '.' -as [double]; $c = $r.CFreiGB -replace ',', '.' -as [double]
-                Pruefe "CPU plausibel 0-100 ($($r.CPU))" ($null -ne $cpu -and $cpu -ge 0 -and $cpu -le 100)
-                Pruefe "RAMFreiMB plausibel ($([int]$ram) vs. echt $([int]$ramEcht))" ($null -ne $ram -and [math]::Abs($ram - $ramEcht) -le ($ramEcht * 0.3 + 300)) 'FreePhysicalMemory ist in KB'
-                Pruefe "CFreiGB plausibel ($c vs. echt $([math]::Round($cEcht,1)))" ($null -ne $c -and [math]::Abs($c - $cEcht) -le 2) 'Free ist in Bytes -> / 1GB'
-                $erw = if ($cEcht -lt 20) { 'WARNUNG' } else { 'OK' }
-                Pruefe "Status bei Standard-Schwelle 20 GB = $erw" ($r.Status -eq $erw)
-                Pruefe 'Status bei -SchwelleGB 999999 = WARNUNG' ($rows[2].Status -eq 'WARNUNG') 'param([int]$SchwelleGB = 20)'
+                $ramReal = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1KB
+                $cReal = (Get-PSDrive C).Free / 1GB
+                Check 'Columns Time, CPU, RAMFreeMB, CFreeGB, Status' (($null -ne $r.Time) -and ($null -ne $r.CPU) -and ($null -ne $r.RAMFreeMB) -and ($null -ne $r.CFreeGB) -and ($null -ne $r.Status))
+                $cpu = $r.CPU -as [double]; $ram = $r.RAMFreeMB -replace ',', '.' -as [double]; $c = $r.CFreeGB -replace ',', '.' -as [double]
+                Check "CPU plausible 0-100 ($($r.CPU))" ($null -ne $cpu -and $cpu -ge 0 -and $cpu -le 100)
+                Check "RAMFreeMB plausible ($([int]$ram) vs. real $([int]$ramReal))" ($null -ne $ram -and [math]::Abs($ram - $ramReal) -le ($ramReal * 0.3 + 300)) 'FreePhysicalMemory is in KB'
+                Check "CFreeGB plausible ($c vs. real $([math]::Round($cReal,1)))" ($null -ne $c -and [math]::Abs($c - $cReal) -le 2) 'Free is in bytes -> / 1GB'
+                $exp = if ($cReal -lt 20) { 'WARNING' } else { 'OK' }
+                Check "Status at default threshold 20 GB = $exp" ($r.Status -eq $exp)
+                Check 'Status at -ThresholdGB 999999 = WARNING' ($rows[2].Status -eq 'WARNING') 'param([int]$ThresholdGB = 20)'
             }
         }
     }
     4 {
-        $md = Join-Path $dir 'patches.md'
-        Pruefe 'patches.md existiert' (Test-Path $md)
-        if (Test-Path $md) {
-            $t = Get-Content $md -Raw
+        $t = Content 'patches.md'
+        Check 'patches.md exists' ($t -ne '')
+        if ($t) {
             $hf = @(Get-HotFix | Where-Object InstalledOn | Sort-Object InstalledOn)
             $kbs = @($hf | ForEach-Object HotFixID)
-            $drin = @($kbs | Where-Object { $t -match $_ })
-            Pruefe "Alle installierten Updates in der Tabelle ($($drin.Count)/$($kbs.Count))" ($drin.Count -eq $kbs.Count)
-            if ($hf.Count) { Pruefe "Letztes Update korrekt ($($hf[-1].HotFixID))" ($t -match "Letztes Update:\s*$($hf[-1].HotFixID)") }
-            Pruefe 'Tabelle vorhanden (|-Zeilen)' ($t -match '\|.*\|')
+            $in = @($kbs | Where-Object { $t -match $_ })
+            Check "All installed updates in the table ($($in.Count)/$($kbs.Count))" ($in.Count -eq $kbs.Count)
+            if ($hf.Count) { Check "Last update correct ($($hf[-1].HotFixID))" ($t -match "Last update:\s*$($hf[-1].HotFixID)") }
+            Check 'Table present (| lines)' ($t -match '\|.*\|')
         }
     }
     5 {
-        $t = Inhalt 'steckbrief.md'
-        Pruefe 'steckbrief.md existiert' ($t -ne '')
+        $t = (Content 'profile.md') -replace '[*_`]', ''  # ignore Markdown bold etc.
+        Check 'profile.md exists' ($t -ne '')
         $os = Get-CimInstance Win32_OperatingSystem
-        # nicht Get-NetIPConfiguration: stürzt bei manchen Netzwerkadaptern ab
-        $routen = @(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
-        $ifs = @($routen | ForEach-Object InterfaceIndex)
+        # not Get-NetIPConfiguration: it crashes with some network adapters
+        $routes = @(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+        $ifs = @($routes | ForEach-Object InterfaceIndex)
         $ips = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $ifs -contains $_.InterfaceIndex } | ForEach-Object IPAddress)
-        $gws = @($routen | ForEach-Object NextHop)
+        $gws = @($routes | ForEach-Object NextHop)
         $dns = @(Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $ifs -contains $_.InterfaceIndex } | ForEach-Object ServerAddresses)
         $ram = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
-        Pruefe "Hostname ($env:COMPUTERNAME)" ($t -match "Hostname:\s*$env:COMPUTERNAME") 'hostname'
-        Pruefe 'Betriebssystem' ($t -match ('Betriebssystem:.*' + [regex]::Escape(($os.Caption -replace 'Microsoft ', '')))) "Genau so: $($os.Caption -replace 'Microsoft ', '')"
-        Pruefe 'IPv4-Adresse' (@($ips | Where-Object { $t -match "IPv4:.*$([regex]::Escape($_))" }).Count -gt 0) 'ipconfig: IPv4-Adresse des Adapters mit Gateway'
-        Pruefe 'Gateway' (@($gws | Where-Object { $t -match "Gateway:.*$([regex]::Escape($_))" }).Count -gt 0) 'ipconfig: Standardgateway'
-        Pruefe 'DNS-Server' (@($dns | Where-Object { $t -match "DNS:.*$([regex]::Escape($_))" }).Count -gt 0) 'ipconfig /all: DNS-Server'
-        Pruefe "RAM GB (ca. $ram)" ($t -match 'RAM GB:\s*(\d+)' -and [math]::Abs([int]$Matches[1] - $ram) -le 1) 'TotalPhysicalMemory ist in Bytes -> / 1GB'
+        Check "Hostname ($env:COMPUTERNAME)" ($t -match "Hostname:\s*$env:COMPUTERNAME") 'hostname'
+        Check 'Operating system' ($t -match ('Operating system:.*' + [regex]::Escape(($os.Caption -replace 'Microsoft ', '')))) "Exactly: $($os.Caption -replace 'Microsoft ', '')"
+        Check 'IPv4 address' (@($ips | Where-Object { $t -match "IPv4:.*$([regex]::Escape($_))" }).Count -gt 0) 'ipconfig: IPv4 address of the adapter with a gateway'
+        Check 'Gateway' (@($gws | Where-Object { $t -match "Gateway:.*$([regex]::Escape($_))" }).Count -gt 0) 'ipconfig: default gateway'
+        Check 'DNS server' (@($dns | Where-Object { $t -match "DNS:.*$([regex]::Escape($_))" }).Count -gt 0) 'ipconfig /all: DNS servers'
+        Check "RAM GB (approx. $ram)" ($t -match 'RAM GB:\s*(\d+)' -and [math]::Abs([int]$Matches[1] - $ram) -le 1) 'TotalPhysicalMemory is in bytes -> / 1GB'
     }
     6 {
-        $csv = Join-Path $dir 'netztest.csv'
-        Pruefe 'netztest.csv existiert' (Test-Path $csv)
+        $csv = Join-Path $dir 'nettest.csv'
+        Check 'nettest.csv exists' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(LiesCsv $csv)
+            $is = @(ReadCsv $csv)
             foreach ($z in @(('www.microsoft.com', 443), ('1.1.1.1', 53), ('localhost', 3389), ('localhost', 445))) {
-                $zeile = $ist | Where-Object { $_.Ziel -eq $z[0] -and "$($_.Port)" -eq "$($z[1])" } | Select-Object -First 1
-                $echt = PortOffen $z[0] $z[1]
-                Pruefe "$($z[0]):$($z[1]) -> erreichbar = $echt" ($zeile -and ((IstWahr $zeile.Erreichbar) -eq $echt)) 'Spalten genau: Ziel, Port, Erreichbar'
+                $line = $is | Where-Object { $_.Target -eq $z[0] -and "$($_.Port)" -eq "$($z[1])" } | Select-Object -First 1
+                $real = PortOpen $z[0] $z[1]
+                Check "$($z[0]):$($z[1]) -> reachable = $real" ($line -and ((IsTrue $line.Reachable) -eq $real)) 'Columns exactly: Target, Port, Reachable'
             }
         }
-        $n = Inhalt 'notiz.md'
-        Pruefe 'Port 3389 erklärt (RDP)' ($n -match 'RDP|Remotedesktop|Remote Desktop')
-        Pruefe 'Port 445 erklärt (SMB)' ($n -match 'SMB|Datei|Freigabe')
+        $n = Content 'notes.md'
+        Check 'Port 3389 explained (RDP)' ($n -match 'RDP|Remote ?Desktop')
+        Check 'Port 445 explained (SMB)' ($n -match 'SMB|file|share')
     }
     7 {
-        $csv = Join-Path $dir 'fehler.csv'
-        Pruefe 'fehler.csv existiert' (Test-Path $csv)
+        $csv = Join-Path $dir 'errors.csv'
+        Check 'errors.csv exists' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(LiesCsv $csv | ForEach-Object { "$($_.ProviderName)|$($_.Id)" })
-            $soll = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Level = 2 } -MaxEvents 10 -ErrorAction SilentlyContinue | ForEach-Object { "$($_.ProviderName)|$($_.Id)" })
-            # shortcut: neue Fehler können seit dem Export dazugekommen sein, darum 2 Abweichungen Toleranz
-            $treffer = @($soll | Where-Object { $ist -contains $_ }).Count
-            Pruefe "Die letzten Fehler gefunden ($treffer von $($soll.Count))" ($ist.Count -gt 0 -and $treffer -ge ($soll.Count - 2)) 'Level = 2 heisst Fehler; -MaxEvents 10; Spalten ProviderName und Id'
-            Pruefe 'Höchstens 10 Einträge' ($ist.Count -le 10)
+            $is = @(ReadCsv $csv | ForEach-Object { "$($_.ProviderName)|$($_.Id)" })
+            $should = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Level = 2 } -MaxEvents 10 -ErrorAction SilentlyContinue | ForEach-Object { "$($_.ProviderName)|$($_.Id)" })
+            # shortcut: new errors may have appeared since the export, so 2 differences are tolerated
+            $hits = @($should | Where-Object { $is -contains $_ }).Count
+            Check "Latest errors found ($hits of $($should.Count))" ($is.Count -gt 0 -and $hits -ge ($should.Count - 2)) 'Level = 2 means error; -MaxEvents 10; columns ProviderName and Id'
+            Check 'At most 10 entries' ($is.Count -le 10)
         }
-        $n = Inhalt 'notiz.md'
-        Pruefe 'notiz.md mit Auswertung' ($n.Length -gt 50) 'Häufigste Quelle nennen und erklären'
+        Check 'notes.md with evaluation' ((Content 'notes.md').Length -gt 50) 'Name the most frequent source and explain it'
     }
     8 {
-        $csv = Join-Path $dir 'benutzer.csv'
-        Pruefe 'benutzer.csv existiert' (Test-Path $csv)
+        $csv = Join-Path $dir 'users.csv'
+        Check 'users.csv exists' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(LiesCsv $csv)
+            $is = @(ReadCsv $csv)
             try { $admins = @(Get-LocalGroupMember -SID $SID_ADMINS | ForEach-Object { $_.SID.Value }) }
             catch { $admins = @(([ADSI]"WinNT://./$((New-Object Security.Principal.SecurityIdentifier $SID_ADMINS).Translate([Security.Principal.NTAccount]).Value.Split('\')[1]),group").Invoke('Members') | ForEach-Object { (New-Object Security.Principal.SecurityIdentifier ([byte[]]$_.GetType().InvokeMember('objectSid', 'GetProperty', $null, $_, $null)), 0).Value }) }
             foreach ($u in Get-LocalUser) {
-                $zeile = $ist | Where-Object Name -eq $u.Name | Select-Object -First 1
-                $istAdmin = $admins -contains $u.SID.Value
-                Pruefe "$($u.Name): Aktiv=$($u.Enabled), Admin=$istAdmin" ($zeile -and (IstWahr $zeile.Aktiv) -eq $u.Enabled -and (IstWahr $zeile.Admin) -eq $istAdmin) 'Alle lokalen Benutzer, Spalten Name, Aktiv, Admin'
+                $line = $is | Where-Object Name -eq $u.Name | Select-Object -First 1
+                $isAdmin = $admins -contains $u.SID.Value
+                Check "$($u.Name): Enabled=$($u.Enabled), Admin=$isAdmin" ($line -and (IsTrue $line.Enabled) -eq $u.Enabled -and (IsTrue $line.Admin) -eq $isAdmin) 'All local users, columns Name, Enabled, Admin'
             }
         }
-        Pruefe 'notiz.md mit Antwort' ((Inhalt 'notiz.md').Length -gt 30)
+        Check 'notes.md with answer' ((Content 'notes.md').Length -gt 30)
     }
     9 {
         $csv = Join-Path $dir 'software.csv'
-        Pruefe 'software.csv existiert' (Test-Path $csv)
+        Check 'software.csv exists' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(LiesCsv $csv)
-            $spalten = if ($ist.Count) { $ist[0].PSObject.Properties.Name } else { @() }
-            Pruefe 'Spalten DisplayName, DisplayVersion, Publisher' (('DisplayName', 'DisplayVersion', 'Publisher' | Where-Object { $spalten -notcontains $_ }).Count -eq 0)
-            $pfade = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
-            $soll = @(Get-ItemProperty $pfade -ErrorAction SilentlyContinue | Where-Object DisplayName | ForEach-Object DisplayName | Sort-Object -Unique)
-            $istN = @($ist | ForEach-Object DisplayName)
-            $treffer = @($soll | Where-Object { $istN -contains $_ }).Count
-            Pruefe "Programme gefunden ($treffer von $($soll.Count))" ($treffer -ge [math]::Floor($soll.Count * 0.9)) 'Alle 3 Registry-Pfade abfragen'
-            Pruefe 'Keine leeren DisplayName' (@($ist | Where-Object { -not $_.DisplayName }).Count -eq 0) 'Where-Object DisplayName'
+            $is = @(ReadCsv $csv)
+            $cols = if ($is.Count) { $is[0].PSObject.Properties.Name } else { @() }
+            Check 'Columns DisplayName, DisplayVersion, Publisher' (('DisplayName', 'DisplayVersion', 'Publisher' | Where-Object { $cols -notcontains $_ }).Count -eq 0)
+            $paths = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+            $should = @(Get-ItemProperty $paths -ErrorAction SilentlyContinue | Where-Object DisplayName | ForEach-Object DisplayName | Sort-Object -Unique)
+            $isN = @($is | ForEach-Object DisplayName)
+            $hits = @($should | Where-Object { $isN -contains $_ }).Count
+            Check "Programs found ($hits of $($should.Count))" ($hits -ge [math]::Floor($should.Count * 0.9)) 'Query all 3 registry paths'
+            Check 'No empty DisplayName' (@($is | Where-Object { -not $_.DisplayName }).Count -eq 0) 'Where-Object DisplayName'
         }
-        Pruefe 'notiz.md mit 3 Programmen' ((Inhalt 'notiz.md').Length -gt 50)
+        Check 'notes.md with 3 programs' ((Content 'notes.md').Length -gt 50)
     }
     10 {
-        $ti = Inhalt 'checkliste-titan.md'; $ws = Inhalt 'checkliste-ws01.md'
-        Pruefe 'checkliste-titan.md existiert' ($ti -ne '')
-        Pruefe 'checkliste-ws01.md existiert' ($ws -ne '')
-        Pruefe 'Kästchen zum Abhaken' ($ti -match '\[ \]|\[x\]|☐' -and $ws -match '\[ \]|\[x\]|☐') "Schreib '- [ ] Aufgabe'"
-        $punkte = @(
-            @('titan', $ti, 'RAM (4 GB)', '4\s*GB|4096'), @('titan', $ti, 'Prozessoren (2 CPU)', 'Prozessor|CPU'), @('titan', $ti, 'Netzwerkadapter intnet-lan', 'intnet'),
-            @('titan', $ti, 'Gasterweiterungen', 'Gasterweiterung|Guest Additions'), @('titan', $ti, 'Servername', 'Servername|Hostname|Computername'),
-            @('titan', $ti, 'Statische IP', 'statisch'), @('titan', $ti, 'Subnetzmaske', 'Subnetz|Maske|255\.255\.255\.192|/26'), @('titan', $ti, 'Gateway', 'Gateway'), @('titan', $ti, 'DNS (OPNsense)', 'DNS'),
-            @('titan', $ti, 'Windows-Updates', 'Update'), @('titan', $ti, 'Rolle Druck- und Dokumentdienste', 'Druck-? ?und Dokument'), @('titan', $ti, 'Druckertreiber (PCL-6)', 'Treiber|PCL'),
-            @('titan', $ti, 'Freigabe pr-office', 'pr-office'), @('titan', $ti, 'Internetzugriff testen', 'Internet'),
-            @('ws01', $ws, 'VirtualBox-Einstellungen', 'RAM|Arbeitsspeicher|GB'), @('ws01', $ws, 'Netzwerkadapter intnet-lan', 'intnet'), @('ws01', $ws, 'Gasterweiterungen', 'Gasterweiterung|Guest Additions'),
-            @('ws01', $ws, 'Computername ws01', 'ws01'), @('ws01', $ws, 'Statische IP (bis DHCP läuft)', 'statisch'), @('ws01', $ws, 'DNS (OPNsense)', 'OPNsense'),
-            @('ws01', $ws, 'Nur lokales Administratorkonto aktiv', 'Administrator'), @('ws01', $ws, 'Andere Konten deaktivieren/löschen', 'deaktiv|lösch|entfern'),
-            @('ws01', $ws, 'Windows-Updates', 'Update'), @('ws01', $ws, 'Internetzugriff testen', 'Internet|ping'),
-            # Werte aus Betriebsdoku/Netzwerkplan Hotel Vier Winde
-            @('titan', $ti, 'IP 172.18.20.120', '172\.18\.20\.120'), @('titan', $ti, 'Maske 255.255.255.192 (/26)', '255\.255\.255\.192|/26'),
-            @('titan', $ti, 'Gateway und DNS = OPNsense 172.18.20.65', '172\.18\.20\.65'), @('titan', $ti, 'Druckermodell HP X58045z', 'X58045'),
-            @('ws01', $ws, 'Statische IP im Client-Bereich .66 - .115', '172\.18\.20\.(6[6-9]|[7-9]\d|10\d|11[0-5])\b'), @('ws01', $ws, 'Maske 255.255.255.192 (/26)', '255\.255\.255\.192|/26'),
-            @('ws01', $ws, 'Gateway und DNS 172.18.20.65', '172\.18\.20\.65'), @('ws01', $ws, 'Tool Firefox', 'Firefox'), @('ws01', $ws, 'Tool Notepad++', 'Notepad\+\+')
+        $ti = Content 'checklist-titan.md'; $ws = Content 'checklist-ws01.md'
+        Check 'checklist-titan.md exists' ($ti -ne '')
+        Check 'checklist-ws01.md exists' ($ws -ne '')
+        Check 'Checkboxes to tick' ($ti -match '\[ \]|\[x\]|☐' -and $ws -match '\[ \]|\[x\]|☐') "Write '- [ ] Task'"
+        $items = @(
+            @('titan', $ti, 'RAM (4 GB)', '4\s*GB|4096'), @('titan', $ti, 'Processors (2 CPU)', 'Processor|CPU'), @('titan', $ti, 'Network adapter intnet-lan', 'intnet'),
+            @('titan', $ti, 'Guest additions / VMware Tools', 'Guest Additions|VMware Tools'), @('titan', $ti, 'Server name', 'Server ?name|Host ?name|Computer ?name|Name:\s*titan'),
+            @('titan', $ti, 'Static IP', 'static|fixed'), @('titan', $ti, 'Subnet mask', 'Subnet|Mask|255\.255\.255\.192|/26'), @('titan', $ti, 'Gateway', 'Gateway|\bGW\b'), @('titan', $ti, 'DNS (OPNsense)', 'DNS'),
+            @('titan', $ti, 'Windows updates', 'Update'), @('titan', $ti, 'Role Print and Document Services', 'Print and Document|Print ?server'), @('titan', $ti, 'Printer driver (PCL-6)', 'Driver|PCL'),
+            @('titan', $ti, 'Share pr-office', 'pr-office'), @('titan', $ti, 'Test internet access', 'Internet'),
+            @('ws01', $ws, 'VM settings', 'RAM|Memory|GB'), @('ws01', $ws, 'Network adapter intnet-lan', 'intnet'), @('ws01', $ws, 'Guest additions / VMware Tools', 'Guest Additions|VMware Tools'),
+            @('ws01', $ws, 'Computer name ws01', 'ws01'), @('ws01', $ws, 'Static IP (until DHCP runs)', 'static|fixed'), @('ws01', $ws, 'DNS (OPNsense)', 'OPNsense'),
+            @('ws01', $ws, 'Only the local Administrator account enabled', 'Administrator'), @('ws01', $ws, 'Disable/delete other accounts', 'disabl|delet|remov'),
+            @('ws01', $ws, 'Windows updates', 'Update'), @('ws01', $ws, 'Test internet access', 'Internet|ping'),
+            # values from the Hotel Vier Winde scenario
+            @('titan', $ti, 'IP 172.18.20.120', '172\.18\.20\.120'), @('titan', $ti, 'Mask 255.255.255.192 (/26)', '255\.255\.255\.192|/26'),
+            @('titan', $ti, 'Gateway and DNS = OPNsense 172.18.20.65', '172\.18\.20\.65'), @('titan', $ti, 'Printer model HP X58045z', 'X58045'),
+            @('ws01', $ws, 'Static IP in the client range .66 - .115', '172\.18\.20\.(6[6-9]|[7-9]\d|10\d|11[0-5])\b'), @('ws01', $ws, 'Mask 255.255.255.192 (/26)', '255\.255\.255\.192|/26'),
+            @('ws01', $ws, 'Gateway and DNS 172.18.20.65', '172\.18\.20\.65'), @('ws01', $ws, 'Tool Firefox', 'Firefox'), @('ws01', $ws, 'Tool Notepad++', 'Notepad\+\+')
         )
-        foreach ($p in $punkte) { Pruefe "$($p[0]): $($p[2])" ($p[1] -match $p[3]) "Ergänze in der Checkliste $($p[0]) einen Punkt zu: $($p[2])" }
+        foreach ($p in $items) { Check "$($p[0]): $($p[2])" ($p[1] -match $p[3]) "Add an item to the $($p[0]) checklist about: $($p[2])" }
     }
     11 {
-        $t = Inhalt 'spooler.md'
-        Pruefe 'spooler.md existiert' ($t -ne '')
+        $t = Content 'spooler.md'
+        Check 'spooler.md exists' ($t -ne '')
         $svc = Get-Service Spooler
-        $start = @{ Automatic = 'Automati'; Manual = 'Manu'; Disabled = 'Deaktiv|Disabled' }["$($svc.StartType)"]
-        $status = @{ Running = 'Running|Läuft|Wird ausgeführt|Gestartet'; Stopped = 'Stopped|Beendet|Gestoppt' }["$($svc.Status)"]
-        Pruefe 'Anzeigename (Druckwarteschlange)' ($t -match [regex]::Escape($svc.DisplayName))
-        Pruefe "Starttyp ($($svc.StartType))" ($t -match $start)
-        Pruefe "Status ($($svc.Status))" ($t -match $status)
-        foreach ($d in $svc.ServicesDependedOn) { Pruefe "Abhängigkeit $($d.Name)" ($t -match [regex]::Escape($d.Name)) 'ServicesDependedOn' }
-        Pruefe 'Pfad zu spoolsv.exe' ($t -match 'spoolsv\.exe') 'Win32_Service -> PathName'
-        Pruefe 'Sicherheitsrisiko erklärt' ($t -match 'PrintNightmare' -and $t.Length -gt 200) 'Was war PrintNightmare (2021)?'
+        $start = @{ Automatic = 'Automatic'; Manual = 'Manual'; Disabled = 'Disabled' }["$($svc.StartType)"]
+        $status = @{ Running = 'Running|Started'; Stopped = 'Stopped' }["$($svc.Status)"]
+        Check 'Display name' ($t -match [regex]::Escape($svc.DisplayName))
+        Check "Start type ($($svc.StartType))" ($t -match $start)
+        Check "Status ($($svc.Status))" ($t -match $status)
+        foreach ($d in $svc.ServicesDependedOn) { Check "Dependency $($d.Name)" ($t -match [regex]::Escape($d.Name)) 'ServicesDependedOn' }
+        Check 'Path to spoolsv.exe' ($t -match 'spoolsv\.exe') 'Win32_Service -> PathName'
+        Check 'Security risk explained' ($t -match 'PrintNightmare' -and $t.Length -gt 200) 'What was PrintNightmare (2021)?'
     }
     12 {
-        Pruefe 'Lab 3 vorhanden (L3\monitor.ps1)' (Test-Path (Join-Path $LabPfad 'L3\monitor.ps1')) 'Zuerst Lab 3 lösen'
+        Check 'Lab 3 present (L3\monitor.ps1)' (Test-Path (Join-Path $LabPath 'L3\monitor.ps1')) 'Solve Lab 3 first'
         $task = Get-ScheduledTask -TaskName 'Lab188-Monitor' -ErrorAction SilentlyContinue
-        Pruefe 'Geplante Aufgabe Lab188-Monitor existiert' ($null -ne $task) 'Register-ScheduledTask -TaskName Lab188-Monitor ...'
+        Check 'Scheduled task Lab188-Monitor exists' ($null -ne $task) 'Register-ScheduledTask -TaskName Lab188-Monitor ...'
         if ($task) {
             $a = $task.Actions | Select-Object -First 1
-            Pruefe 'Startet powershell.exe' ($a.Execute -match 'powershell')
-            Pruefe 'Mit L3\monitor.ps1' ($a.Arguments -match 'monitor\.ps1') '-Argument "-File C:\...\L3\monitor.ps1"'
+            Check 'Starts powershell.exe' ($a.Execute -match 'powershell')
+            Check 'With L3\monitor.ps1' ($a.Arguments -match 'monitor\.ps1') '-Argument "-File C:\...\L3\monitor.ps1"'
             $iv = @($task.Triggers | ForEach-Object { $_.Repetition.Interval })
-            Pruefe 'Alle 15 Minuten' ($iv -contains 'PT15M') '-RepetitionInterval (New-TimeSpan -Minutes 15)'
-            Pruefe 'Aufgabe ist aktiviert' ($task.State -ne 'Disabled')
+            Check 'Every 15 minutes' ($iv -contains 'PT15M') '-RepetitionInterval (New-TimeSpan -Minutes 15)'
+            Check 'Task is enabled' ($task.State -ne 'Disabled')
         }
     }
     13 {
-        $t = (Inhalt 'netz.md') -replace '[*_`]', ''  # Markdown-Fettdruck usw. ignorieren
-        Pruefe 'netz.md existiert' ($t -ne '')
-        $soll = [ordered]@{ 'Subnetzmaske' = '255.255.254.0'; 'Netzadresse' = '10.20.30.0'; 'Broadcast' = '10.20.31.255'; 'Erster Host' = '10.20.30.1'; 'Letzter Host' = '10.20.31.254'; 'Anzahl Hosts' = '510'; 'Hotel DHCP-Adressen' = '50' }
-        $tipps = @{ 'Subnetzmaske' = '/23 = 23 Einsen'; 'Broadcast' = '/23 umfasst 2 x 256 Adressen'; 'Anzahl Hosts' = '2^(32-23) - 2'; 'Hotel DHCP-Adressen' = 'Von 66 bis 115, beide mitgezählt' }
-        foreach ($k in $soll.Keys) { Pruefe "$k = ?" ($t -match "$k\s*:\s*$([regex]::Escape($soll[$k]))(\s|$)") $tipps[$k] }
-        Pruefe '172.18.20.130 im Hotelnetz = ?' ($t -match '172\.18\.20\.130 im Hotelnetz:\s*Nein') '/26 = 64 Adressen ab .64'
+        # ignore Markdown bold; turn table rows '| key | value |' into 'key: value'
+        $lines = @(((Content 'network.md') -replace '[*_`]', '') -split '\r?\n' | ForEach-Object { ($_ -replace '^\s*\|\s*', '' -replace '\s*\|\s*$', '' -replace '\s*\|\s*', ': ').Trim() })
+        Check 'network.md exists' ((Content 'network.md') -ne '')
+        # exactly one answer per question (no "512 and 510"), extra text after the value is fine (e.g. 10.20.30.0/23)
+        function Answer($key, $value) { $hit = @($lines | Where-Object { $_ -match "^$([regex]::Escape($key))\s*:" }); $hit.Count -eq 1 -and $hit[0] -match ":\s*$([regex]::Escape($value))(?![\d.]\d)" }
+        $should = [ordered]@{ 'Subnet mask' = '255.255.254.0'; 'Network address' = '10.20.30.0'; 'Broadcast' = '10.20.31.255'; 'First host' = '10.20.30.1'; 'Last host' = '10.20.31.254'; 'Number of hosts' = '510'; 'Hotel DHCP addresses' = '50' }
+        $hints = @{ 'Subnet mask' = '/23 = 23 ones'; 'Broadcast' = '/23 covers 2 x 256 addresses'; 'Number of hosts' = '2^(32-23) - 2'; 'Hotel DHCP addresses' = 'From 66 to 115, both included' }
+        foreach ($k in $should.Keys) { Check "$k = ?" (Answer $k $should[$k]) $(if ($hints[$k]) { $hints[$k] } else { 'One line per question, value right after the colon' }) }
+        Check '172.18.20.130 in hotel network = ?' (Answer '172.18.20.130 in hotel network' 'No') '/26 = 64 addresses starting at .64'
     }
     14 {
-        $csv = Join-Path $dir 'berechtigungen.csv'
-        Pruefe 'berechtigungen.csv existiert' (Test-Path $csv)
+        $csv = Join-Path $dir 'permissions.csv'
+        Check 'permissions.csv exists' (Test-Path $csv)
         if (Test-Path $csv) {
-            # Abteilungen kurz: GL, AD, FO, BO, FB, CO, HK, TE (Tabelle in Unterlagen\Hotel Vier Winde.md)
+            # departments short: MG, AD, FO, BO, FB, CO, HK, TE (table in Unterlagen\Hotel Vier Winde.md)
             $matrix = [ordered]@{
-                'austausch' = 'GL AD FO BO FB CO HK TE'; 'front-office' = 'GL FO'; 'bo' = 'GL BO'; 'administration' = 'GL AD FB CO'; 'conv' = 'GL FB CO'; 'fobe' = 'GL CO'
-                'saal' = 'GL AD FO BO CO TE'; 'bar' = 'GL AD FO BO FB CO TE'; 'sitzungen' = 'GL AD FO BO CO TE'; 'bueros' = 'GL AD FO BO CO TE'; 'pr-office' = 'GL AD FO BO FB CO HK TE'
+                'exchange' = 'MG AD FO BO FB CO HK TE'; 'front-office' = 'MG FO'; 'bo' = 'MG BO'; 'administration' = 'MG AD FB CO'; 'conv' = 'MG FB CO'; 'fobe' = 'MG CO'
+                'hall' = 'MG AD FO BO CO TE'; 'bar' = 'MG AD FO BO FB CO TE'; 'meetings' = 'MG AD FO BO CO TE'; 'offices' = 'MG AD FO BO CO TE'; 'pr-office' = 'MG AD FO BO FB CO HK TE'
             }
-            function Abt($a) { switch -Regex ($a.Trim()) { '^GL$|Gesch' { 'GL' } '^AD$|Admin' { 'AD' } '^FO$|Front' { 'FO' } '^BO$|Back' { 'BO' } '^FB$|Food|F&B' { 'FB' } '^CO$|Conv' { 'CO' } '^HK$|House' { 'HK' } '^TE$|Tech' { 'TE' } } }
-            # Recht vereinheitlichen: 'L,S' / 'L/S' / 'ls' -> 'LS'; Zeilen mit '-' oder leer zählen nicht
-            function Recht($r) { -join (($r.ToUpper() -replace '[^LSD]', '').ToCharArray() | Sort-Object -Unique) }
-            $ist = @(LiesCsv $csv | Where-Object { (Recht $_.Recht) } | ForEach-Object { "$($_.Freigabe.Trim().ToLower() -replace 'ü','ue' -replace '^b.ros$','bueros')|$(Abt $_.Abteilung)|$(Recht $_.Recht)" })  # 'b.ros': ü ging beim Speichern ohne UTF-8 verloren
+            function Dept($d) { switch -Regex ($d.Trim()) { '^MG$|Manage' { 'MG' } '^AD$|Admin' { 'AD' } '^FO$|Front' { 'FO' } '^BO$|Back' { 'BO' } '^FB$|Food|F&B' { 'FB' } '^CO$|Conv' { 'CO' } '^HK$|House' { 'HK' } '^TE$|Tech' { 'TE' } } }
+            # normalise right: 'R,W' / 'R/W' / 'rw' -> 'RW'; lines with '-' or empty do not count
+            function Right($r) { -join (($r.ToUpper() -replace '[^RWP]', '').ToCharArray() | Sort-Object -Unique) }
+            $is = @(ReadCsv $csv | Where-Object { (Right $_.Right) } | ForEach-Object { "$($_.Share.Trim().ToLower())|$(Dept $_.Department)|$(Right $_.Right)" })
             foreach ($f in $matrix.Keys) {
-                $r = if ($f -eq 'pr-office') { 'D' } else { 'LS' }
-                $sollF = @($matrix[$f].Split(' ') | ForEach-Object { "$f|$_|$r" })
-                $istF = @($ist | Where-Object { $_ -like "$f|*" })
-                $passt = (@($sollF | Where-Object { $istF -notcontains $_ }).Count -eq 0) -and (@($istF | Where-Object { $sollF -notcontains $_ }).Count -eq 0)
-                Pruefe "Freigabe $f" $passt 'Vergleiche Zeile für Zeile mit der Tabelle in Unterlagen\Hotel Vier Winde.md'
+                $r = if ($f -eq 'pr-office') { 'P' } else { 'RW' }
+                $shouldF = @($matrix[$f].Split(' ') | ForEach-Object { "$f|$_|$r" })
+                $isF = @($is | Where-Object { $_ -like "$f|*" })
+                $match = (@($shouldF | Where-Object { $isF -notcontains $_ }).Count -eq 0) -and (@($isF | Where-Object { $shouldF -notcontains $_ }).Count -eq 0)
+                Check "Share $f" $match 'Compare line by line with the table in Unterlagen\Hotel Vier Winde.md'
             }
         }
-        $n = Inhalt 'notiz.md'
-        Pruefe 'AGDLP für Austausch erklärt' ($n -match 'global|GG_|G_' -and $n -match 'lokal|DL_' ) 'Benutzer -> Globale Gruppe (pro Abteilung) -> Domänenlokale Gruppe (pro Freigabe + Recht) -> Berechtigung'
+        $n = Content 'notes.md'
+        Check 'AGDLP for Exchange explained' ($n -match 'global|GG_|G_' -and $n -match 'local|DL_') 'User -> global group (per department) -> domain local group (per share + right) -> permission'
     }
     15 {
-        $csv = Join-Path $dir 'benutzer.csv'
-        Pruefe 'benutzer.csv existiert' (Test-Path $csv)
+        $csv = Join-Path $dir 'users.csv'
+        Check 'users.csv exists' (Test-Path $csv)
         if (Test-Path $csv) {
             $logins = @('sandel', 'paumic', 'stefuc', 'thokni', 'gerbae', 'Leobru', 'simtau', 'petzac', 'norber', 'sanmar', 'Danber', 'thokro', 'stemei', 'thokle', 'Benkra', 'antber', 'petweb', 'Stetra', 'girpol', 'gerber', 'piaman', 'andkav', 'dandse', 'petdel', 'nicber')
-            $zeilen = @(LiesCsv $csv)
-            $ist = @($zeilen | ForEach-Object { $_.Login })
-            $fehlt = @($logins | Where-Object { $ist -notcontains $_ })
-            Pruefe "Alle Benutzer erfasst ($($logins.Count - $fehlt.Count) von $($logins.Count) Logins)" ($fehlt.Count -eq 0) "Es fehlen z. B.: $($fehlt | Select-Object -First 3)"
-            # Stichprobe: stimmen Vor- und Nachname zum Login?
-            $namen = @{ sandel = 'Sandro Della Serra'; thokni = 'Thomas König'; gerbae = 'Gerhard Bär'; dandse = 'Daniel Düsentrieb'; petdel = 'Petro Del Duerr' }
-            # Umlaute gehen beim Speichern ohne UTF-8 verloren (König -> K?nig): an ihrer Stelle jedes Zeichen erlauben
-            $falscheNamen = @($namen.Keys | Where-Object { $k = $_; $re = '^' + ([regex]::Escape($namen[$k]) -replace '[äöüÄÖÜ]', '.') + '$'
-                    -not ($zeilen | Where-Object { $_.Login -eq $k -and "$($_.Vorname.Trim()) $($_.Nachname.Trim())" -match $re }) })
-            Pruefe 'Vor- und Nachnamen korrekt erfasst' ($falscheNamen.Count -eq 0) "Prüfe die Namen zu: $($falscheNamen -join ', ')"
+            $rows = @(ReadCsv $csv)
+            $is = @($rows | ForEach-Object { $_.Login })
+            $missing = @($logins | Where-Object { $is -notcontains $_ })
+            Check "All users entered ($($logins.Count - $missing.Count) of $($logins.Count) logins)" ($missing.Count -eq 0) "Missing e.g.: $($missing | Select-Object -First 3)"
+            # sample: do first and last name match the login?
+            $names = @{ sandel = 'Sandro Della Serra'; thokni = 'Thomas König'; gerbae = 'Gerhard Bär'; dandse = 'Daniel Düsentrieb'; petdel = 'Petro Del Duerr' }
+            # umlauts get lost when saving without UTF-8 (König -> K?nig): allow any character in their place
+            $wrongNames = @($names.Keys | Where-Object { $k = $_; $re = '^' + ([regex]::Escape($names[$k]) -replace '[äöüÄÖÜ]', '.') + '$'
+                    -not ($rows | Where-Object { $_.Login -eq $k -and "$($_.FirstName.Trim()) $($_.LastName.Trim())" -match $re }) })
+            Check 'First and last names entered correctly' ($wrongNames.Count -eq 0) "Check the names for: $($wrongNames -join ', ')"
         }
-        $skript = ((Inhalt 'pruefen.ps1') -split '\r?\n' | Where-Object { $_ -notmatch '^\s*#' }) -join "`n"  # Kommentare zählen nicht
-        Pruefe 'pruefen.ps1 berechnet das Soll-Login' ($skript -match 'Substring|\.Remove\(|\[0\.\.2\]|-match' -and $skript -match 'ToLower|-replace|-creplace') 'Das Skript soll aus Vorname und Nachname das Login nach der Regel berechnen (3 Zeichen nehmen, Umlaute ersetzen, klein schreiben)'
-        $abw = @((Inhalt 'abweichungen.txt') -split '\r?\n' | ForEach-Object Trim | Where-Object { $_ })
-        foreach ($a in 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra') { Pruefe "Abweichung $a gefunden" ($abw -ccontains $a) }
-        $falsch = @($abw | Where-Object { 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra' -cnotcontains $_ })
-        Pruefe 'Keine korrekten Logins als Abweichung gemeldet' ($falsch.Count -eq 0) "Diese sind korrekt: $($falsch -join ', ')"
+        $script = (((Content 'check.ps1') -replace '(?s)<#.*?#>', '') -split '\r?\n' | ForEach-Object { $_ -replace '#.*$', '' }) -join "`n"  # comments do not count
+        Check 'check.ps1 calculates the expected login' ($script -match 'Substring|\.Remove\(|\[0\.\.2\]|-match' -and $script -match 'ToLower|-replace|-creplace') 'The script should calculate the login from first and last name by the rule (take 3 characters, replace umlauts, lower case)'
+        $dev = @((Content 'deviations.txt') -split '\r?\n' | ForEach-Object Trim | Where-Object { $_ })
+        foreach ($d in 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra') { Check "Deviation $d found" ($dev -ccontains $d) }
+        $wrong = @($dev | Where-Object { 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra' -cnotcontains $_ })
+        Check 'No correct logins reported as deviations' ($wrong.Count -eq 0) "These are correct: $($wrong -join ', ')"
     }
 }
 
-Write-Host "`nErgebnis: $script:ok von $($script:ok + $script:fail) Punkten" -ForegroundColor Cyan
-if ($script:fail -eq 0) { Write-Host 'Lab bestanden! Halte jetzt mit "Doku erstellen" fest, was du gemacht hast.' -ForegroundColor Green }
+Write-Host "`nResult: $script:ok of $($script:ok + $script:fail) points" -ForegroundColor Cyan
+if ($script:fail -eq 0) { Write-Host 'Lab passed! Now record what you did with "Create doc".' -ForegroundColor Green }

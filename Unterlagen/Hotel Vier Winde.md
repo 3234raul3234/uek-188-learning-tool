@@ -1,32 +1,32 @@
-# Szenario: Hotel Vier Winde
+# Scenario: Hotel Vier Winde
 
-Die Labs spielen in der (fiktiven) Firma **Hotel Vier Winde AG**. Hier stehen alle Daten, die du für die Labs brauchst.
+The labs take place at the (fictional) company **Hotel Vier Winde Ltd**. This page contains all the data you need for the labs.
 
-## Netz
+## Network
 | | |
 |---|---|
-| Netzwerk | 172.18.20.64/26 (255.255.255.192) |
-| Gateway / Firewall (OPNsense) | 172.18.20.65 – am Anfang auch DNS |
+| Network | 172.18.20.64/26 (255.255.255.192) |
+| Gateway / firewall (OPNsense) | 172.18.20.65 – also DNS at the beginning |
 | Clients DHCP (ws01–ws50) | 172.18.20.66 – .115 |
-| Drucker | 172.18.20.116 – .119 |
-| Server | 172.18.20.120 – .126 |
-| DNS- und DHCP-Server (später) | 172.18.20.120 (titan) |
-| Domäne | hoviwi.local |
+| Printers | 172.18.20.116 – .119 |
+| Servers | 172.18.20.120 – .126 |
+| DNS and DHCP server (later) | 172.18.20.120 (titan) |
+| Domain | hoviwi.local |
 
-## Systeme (VMs, Netzwerkadapter intnet-lan)
+## Systems (VMs, network adapter intnet-lan)
 | Name | System | IP | VM |
 |---|---|---|---|
 | titan | Windows Server 2025 Standard (Desktop) | 172.18.20.120 | 2 vCPU, 4 GB, 100 GB |
 | atlas | Ubuntu Desktop 24.04 | 172.18.20.121 | 2 vCPU, 4 GB, 50 GB |
 | helios | Ubuntu Server 24.04 | 172.18.20.122 | 2 vCPU, 4 GB, 50 GB |
-| ws01 | Windows 11 | statisch, bis DHCP läuft | 2 vCPU, 4 GB, 100 GB |
+| ws01 | Windows 11 | static until DHCP runs | 2 vCPU, 4 GB, 100 GB |
 
-- **titan Rollen:** AD DS, DNS, DHCP, Datei- und Druckdienste, SNMP, Windows Server Backup
-- **ws01:** nur das lokale Administratorkonto ist aktiv · Tools: Firefox, Notepad++
-- **Drucker pr-office:** HP Color LaserJet Enterprise Flow MFP X58045z, Treiber Universal PCL-6
+- **titan roles:** AD DS, DNS, DHCP, File and Print Services, SNMP, Windows Server Backup
+- **ws01:** only the local Administrator account is enabled · tools: Firefox, Notepad++
+- **Printer pr-office:** HP Color LaserJet Enterprise Flow MFP X58045z, driver Universal PCL-6
 
-## Benutzer
-| Abteilung | Vorname | Nachname | Login |
+## Users
+| Department | First name | Last name | Login |
 |---|---|---|---|
 | Administration | Sandro | Della Serra | sandel |
 | Administration | Paula | Michel | paumic |
@@ -51,23 +51,23 @@ Die Labs spielen in der (fiktiven) Firma **Hotel Vier Winde AG**. Hier stehen al
 | Housekeeping | Gertrude | Bertram | gerber |
 | Housekeeping | Pia | Manjou | piaman |
 | Housekeeping | Andrea | Kaviezel | andkav |
-| Technik | Daniel | Düsentrieb | dandse |
-| Technik | Petro | Del Duerr | petdel |
-| Technik | Nico | Berger | nicber |
+| Technical | Daniel | Düsentrieb | dandse |
+| Technical | Petro | Del Duerr | petdel |
+| Technical | Nico | Berger | nicber |
 
-## Serverfreigaben und Berechtigungen
-L = Lesen/Ausführen · S = Schreiben · D = Drucken · – = keine Rechte
+## Server shares and permissions
+R = read/execute · W = write · P = print · – = no rights
 
-| Freigabe | Geschäftsleitung | Administration | Front-Office | Back-Office | Food & Beverage | Convention | Housekeeping | Technik |
+| Share | Management | Administration | Front Office | Back Office | Food & Beverage | Convention | Housekeeping | Technical |
 |---|---|---|---|---|---|---|---|---|
-| Austausch | L,S | L,S | L,S | L,S | L,S | L,S | L,S | L,S |
-| Front-office | L,S | – | L,S | – | – | – | – | – |
-| BO | L,S | – | – | L,S | – | – | – | – |
-| Administration | L,S | L,S | – | – | L,S | L,S | – | – |
-| Conv | L,S | – | – | – | L,S | L,S | – | – |
-| FOBE | L,S | – | – | – | – | L,S | – | – |
-| Saal | L,S | L,S | L,S | L,S | – | L,S | – | L,S |
-| Bar | L,S | L,S | L,S | L,S | L,S | L,S | – | L,S |
-| Sitzungen | L,S | L,S | L,S | L,S | – | L,S | – | L,S |
-| Büros | L,S | L,S | L,S | L,S | – | L,S | – | L,S |
-| pr-office | D | D | D | D | D | D | D | D |
+| Exchange | R,W | R,W | R,W | R,W | R,W | R,W | R,W | R,W |
+| Front-office | R,W | – | R,W | – | – | – | – | – |
+| BO | R,W | – | – | R,W | – | – | – | – |
+| Administration | R,W | R,W | – | – | R,W | R,W | – | – |
+| Conv | R,W | – | – | – | R,W | R,W | – | – |
+| FOBE | R,W | – | – | – | – | R,W | – | – |
+| Hall | R,W | R,W | R,W | R,W | – | R,W | – | R,W |
+| Bar | R,W | R,W | R,W | R,W | R,W | R,W | – | R,W |
+| Meetings | R,W | R,W | R,W | R,W | – | R,W | – | R,W |
+| Offices | R,W | R,W | R,W | R,W | – | R,W | – | R,W |
+| pr-office | P | P | P | P | P | P | P | P |

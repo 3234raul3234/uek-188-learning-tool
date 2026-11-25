@@ -1,73 +1,74 @@
-# ÜK 188 Lern-Tool
+# UEK 188 Learning Tool
 
-> 🚧 **Beta-Version:** Das Tool wird noch entwickelt. Es kann Fehler geben, und Aufgaben können sich noch ändern. Probleme oder Ideen bitte unter [Issues](https://github.com/3234raul3234/uek-188-learning-tool/issues/new/choose) melden (dafür brauchst du ein gratis GitHub-Konto). Was neu ist, steht im [Changelog](CHANGELOG.md).
+> 🚧 **Beta version:** this tool is still being developed. There may be bugs, and tasks may still change. Please report problems or ideas under [Issues](https://github.com/3234raul3234/uek-188-learning-tool/issues/new/choose) (you need a free GitHub account). What's new is in the [Changelog](CHANGELOG.md).
 
-Ein Übungsprogramm für den **ÜK 188** (Services betreiben, warten und überwachen).
-Du bekommst eine Windows-VM mit **15 Aufgaben**. Das Programm sagt dir sofort, ob du sie richtig gelöst hast.
-
----
-
-## Was dein PC braucht
-- Windows 10 oder 11, mindestens **16 GB RAM** (die VM bekommt 8 GB) und etwa **40 GB freien Speicher auf Laufwerk C:**
-- Virtualisierung eingeschaltet (bei den meisten PCs schon der Fall)
-- Internet für die Downloads
-
-## Installieren (3 Schritte)
-
-**1. VMware installieren**
-**VMware Workstation Pro** ist gratis. Für den Download brauchst du ein gratis **Broadcom-Konto**:
-1. Auf https://support.broadcom.com ein Konto erstellen und anmelden
-2. Oben **My Downloads** öffnen → **Free Software Downloads**
-3. **VMware Workstation Pro** → **for Windows** → neueste Version (17.5, 25H2 oder neuer) herunterladen und installieren
-
-Mehr Infos: https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion
-
-**2. Windows 11 herunterladen**
-Öffne https://www.microsoft.com/software-download/windows11. Wähle unter **„Download Windows 11 Disk Image (ISO)“** (deutsch: *Windows 11-Datenträgerimage (ISO) herunterladen*) den Eintrag **„Windows 11 (multi-edition ISO for x64 devices)“** und eine **beliebige Sprache**, z. B. Deutsch. Dann lädst du die ISO-Datei herunter (ca. 7 GB).
-**Lösch die ISO danach nicht**: Die VM braucht sie, und zum Neubauen auch.
-
-**3. Dieses Tool starten**
-- Klick oben auf den grünen Knopf **Code** und dann auf **Download ZIP**
-- ⚠️ **Zuerst entpacken:** Rechtsklick auf die ZIP-Datei → *Alle extrahieren*
-- Im **entpackten** Ordner doppelt auf **`START.cmd`** klicken. (Windows legt oft zwei gleich heissende Ordner ineinander: `START.cmd` liegt im **inneren** Ordner.) Warnt Windows, klick auf *Weitere Informationen* → *Trotzdem ausführen*
-- Wähle die Windows-ISO aus Schritt 2 aus
-
-**Fertig.** Das Tool kopiert sich nach `C:\UEK188` (den entpackten Ordner kannst du danach löschen) und baut die VM. Windows installiert sich jetzt von selbst. Warte ca. **30 Minuten** und klick in der Zeit nichts an.
-
-**VM später wieder öffnen:** VMware starten → **File → Open** → `C:\UEK188\VM\UEK188-Win11Edu.vmx` → **Power on**.
+A practice program for the Swiss ICT course **UEK 188** (operate, maintain and monitor services).
+You get a Windows VM with **15 tasks**. The program tells you immediately whether you solved them correctly.
 
 ---
 
-## Benutzen
+## What your computer needs
+- Windows 10 or 11, at least **16 GB RAM** (the VM gets 8 GB) and about **40 GB of free space on drive C:**
+- Virtualisation enabled (already the case on most computers)
+- Internet for the downloads
 
-1. Melde dich in der VM an. Benutzer: **Administrator**, Passwort: **Lab188-uek**
-2. Doppelklick auf **Lab-Trainer UeK 188** auf dem Desktop
-3. Links eine Aufgabe wählen und dann:
-   **Lab starten** → **Ordner öffnen** → Aufgabe lösen → **Prüfen**
+## Install (3 steps)
 
-Grün heisst richtig, rot heisst falsch, und unter Rot steht ein Tipp.
-Alles, was du für die Aufgaben wissen musst (Netz, Benutzer, Freigaben), steht in der VM unter `C:\UEK188\Unterlagen`.
+**1. Install VMware**
+**VMware Workstation Pro** is free. To download it you need a free **Broadcom account**:
+1. Create an account at https://support.broadcom.com and sign in (on the first download you have to accept the terms and enter your address)
+2. At the top open **My Downloads** → **Free Software Downloads**
+3. **VMware Workstation Pro** → **for Windows** → download and install the latest version (17.5, 25H2 or newer)
+4. Open VMware once yourself and confirm **personal use**
 
-Extra-Knöpfe:
-- **Doku erstellen**: schreibt dir einen Text für deine Dokumentation
-- **Quiz**: fragt dich Theorie ab
-- **Update**: holt die neueste Version der Aufgaben
+More info: https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion
 
-**Tipp:** Mach direkt nach der Installation einen Snapshot: in VMware **VM → Snapshot → Take Snapshot**, Name `Frisch`. So kannst du die VM jederzeit auf frisch zurücksetzen.
+**2. Download Windows 11**
+Open https://www.microsoft.com/software-download/windows11. Under **"Download Windows 11 Disk Image (ISO)"** choose **"Windows 11 (multi-edition ISO for x64 devices)"** and **any language**. Then download the ISO file (about 7 GB).
+**Do not delete the ISO afterwards**: the VM needs it, and so does rebuilding.
 
-**Auf deinem PC** (nicht in der VM) gibt es die Verknüpfung **Lab-Trainer UeK 188 (PC)**. Dort hat der Lab-Trainer zwei Knöpfe mehr:
-- **VM aktualisieren**: bringt neue Aufgaben in die laufende VM
-- **VM zurücksetzen**: setzt die VM auf den Snapshot `Frisch` zurück (gibt es noch keinen, legt der Knopf ihn an)
+**3. Start this tool**
+- Click the green **Code** button at the top and then **Download ZIP**
+- ⚠️ **Extract it first:** right-click the ZIP file → *Extract All*
+- In the **extracted** folder, double-click **`START.cmd`**. (Windows often puts two folders with the same name inside each other: `START.cmd` is in the **inner** folder.) If Windows warns you, click *More info* → *Run anyway*
+- Choose the Windows ISO from step 2 (the window may open behind the black console window)
+
+**Done.** The tool copies itself to `C:\UEK188` (you can delete the extracted folder afterwards) and builds the VM. Windows now installs itself. Wait about **30 minutes** and don't click anything in the meantime. After the automatic restart, the logon screen appears.
+
+**Open the VM again later:** start VMware → **File → Open** → `C:\UEK188\VM\UEK188-Win11Edu.vmx` → **Power on**.
 
 ---
 
-## Gut zu wissen
+## Use
 
-- Windows ist **nicht aktiviert**, unten rechts erscheint ein Wasserzeichen. Zum Üben funktioniert alles. Für eine Aktivierung brauchst du eine eigene Lizenz.
-- Das Passwort ist nur für diese VM. Verwende es nirgends sonst.
-- Die Tastatur in der VM ist auf **Schweizerdeutsch** eingestellt. Ändern kannst du sie in Windows unter *Einstellungen → Zeit und Sprache → Sprache und Region*.
-- Etwas kaputt gemacht? Snapshot zurücksetzen oder `C:\UEK188\START.cmd` starten und die VM neu bauen lassen.
+1. Sign in to the VM. User: **Administrator**, password: **Lab188-uek**
+2. Double-click **Lab Trainer UEK 188** on the desktop
+3. Choose a task on the left and then:
+   **Start lab** → **Open folder** → solve the task → **Check**
 
-## Lizenz
+Green means correct, red means wrong, and below red there is a hint.
+Everything you need to know for the tasks (network, users, shares) is in the VM under `C:\UEK188\Unterlagen`.
 
-Du darfst das Tool **benutzen**, um zu lernen. **Kopieren, weitergeben und verkaufen ist nicht erlaubt.** Die Details stehen in [LICENSE](LICENSE).
+Extra buttons:
+- **Create doc**: writes a text for your documentation
+- **Quiz**: tests your theory knowledge
+- **Update**: gets the latest version of the tasks
+
+**Tip:** take a snapshot right after the installation: in VMware **VM → Snapshot → Take Snapshot**, name `Fresh`. That way you can reset the VM to fresh at any time.
+
+**On your computer** (not in the VM) there is the shortcut **Lab Trainer UEK 188 (PC)**. It is only for two extra buttons; you solve the labs in the VM:
+- **Update VM**: brings new tasks into the running VM (click **Update** first, then **Update VM**)
+- **Reset VM**: resets the VM to the snapshot `Fresh` (if there is none yet, the button creates it)
+
+---
+
+## Good to know
+
+- Windows is **not activated**, a watermark appears at the bottom right. Everything works for practising. To activate it you need your own licence.
+- The password is only for this VM. Don't use it anywhere else.
+- The keyboard in the VM is set to **Swiss German**. You can change it in Windows under *Settings → Time & language → Language & region*.
+- Broke something? Reset the snapshot or run `C:\UEK188\START.cmd` and let it rebuild the VM.
+
+## Licence
+
+You may **use** the tool to learn. **Passing on copies, republishing and selling are not allowed.** Details are in [LICENSE](LICENSE).

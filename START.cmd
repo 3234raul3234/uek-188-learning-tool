@@ -1,8 +1,8 @@
 @echo off
-title UeK 188 Lern-Tool installieren
+title UEK 188 Learning Tool setup
 if not exist "%~dp0Setup\installieren.ps1" (
-  echo Bitte zuerst die ZIP-Datei entpacken: Rechtsklick auf die ZIP-Datei, "Alle extrahieren",
-  echo dann im entpackten Ordner START.cmd doppelklicken.
+  echo Please extract the ZIP file first: right-click the ZIP file, "Extract All",
+  echo then double-click START.cmd in the extracted folder.
   pause
   exit /b 1
 )

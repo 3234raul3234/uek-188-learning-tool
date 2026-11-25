@@ -1,4 +1,4 @@
-name: Selbsttest
+name: Self-test
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Syntax aller PowerShell-Skripte
+      - name: Syntax of all PowerShell scripts
         shell: powershell
         run: |
           $fehler = 0
@@ -22,6 +22,6 @@ jobs:
           }
           exit $fehler
 
-      - name: Alle 15 Labs (ungelöst rot, gelöst grün)
+      - name: All 15 labs (unsolved red, solved green)
         shell: powershell
         run: .\Tests\selbsttest.ps1

@@ -1,26 +1,26 @@
-﻿# Baut Setup-ISO + VMware-VM "UEK188 Windows 11 Edu" (normalerweise über START.cmd).
-# Direkt:  vm-erstellen.ps1 -WinIso "C:\Pfad\zu\Windows11.iso"   (alte VM-Dateien werden ersetzt)
+﻿# Builds the setup ISO + VMware VM "UEK188 Windows 11 Edu" (normally via START.cmd).
+# Directly:  vm-erstellen.ps1 -WinIso "C:\path\to\Windows11.iso"   (old VM files are replaced)
 param([string]$WinIso)
-if (-not $WinIso) { throw 'Bitte START.cmd verwenden oder die ISO angeben: vm-erstellen.ps1 -WinIso "C:\Pfad\zu\Windows11.iso"' }
+if (-not $WinIso) { throw 'Please use START.cmd or give the ISO: vm-erstellen.ps1 -WinIso "C:\path\to\Windows11.iso"' }
 $ErrorActionPreference = 'Stop'
 $root = 'C:\UEK188'; $vmDir = "$root\VM"; $vmx = "$vmDir\UEK188-Win11Edu.vmx"; $setupIso = "$root\Setup\UEK188-Setup.iso"
 $vmw = (Get-ItemProperty 'HKLM:\SOFTWARE\VMware, Inc.\VMware Workstation', 'HKLM:\SOFTWARE\WOW6432Node\VMware, Inc.\VMware Workstation' -ErrorAction SilentlyContinue | Select-Object -First 1).InstallPath
 if (-not $vmw) { $vmw = 'C:\Program Files\VMware\VMware Workstation' }
 $vmw = $vmw.TrimEnd('\')
-if (-not (Test-Path "$vmw\vmrun.exe")) { throw "VMware Workstation nicht gefunden ($vmw)" }
-if (-not (Test-Path $WinIso)) { throw "Windows-ISO fehlt: $WinIso" }
-if (Test-Path $vmx) { try { & "$vmw\vmrun.exe" -T ws stop $vmx hard 2>&1 | Out-Null } catch {}; Start-Sleep 3 }  # laufende VM hält die ISO fest
+if (-not (Test-Path "$vmw\vmrun.exe")) { throw "VMware Workstation not found ($vmw)" }
+if (-not (Test-Path $WinIso)) { throw "Windows ISO missing: $WinIso" }
+if (Test-Path $vmx) { try { & "$vmw\vmrun.exe" -T ws stop $vmx hard 2>&1 | Out-Null } catch {}; Start-Sleep 3 }  # a running VM locks the ISO
 
-# Sprache und Education-Index aus der ISO lesen, damit jede Sprache und jede Multi-Edition-ISO funktioniert
+# Read language and Education index from the ISO, so that every language and every multi-edition ISO works
 $info = & "$PSScriptRoot\iso-info.ps1" -Iso $WinIso
-"ISO: Sprache $($info.Sprache), Windows 11 Education = Index $($info.Index)"
+"ISO: language $($info.Language), Windows 11 Education = index $($info.Index)"
 
-# Setup-ISO aus einem Bau-Ordner: autounattend.xml (angepasst), setup.ps1, Labs, Unterlagen
+# Setup ISO from a build folder: autounattend.xml (adjusted), setup.ps1, labs, documents
 $stage = "$root\Setup\iso-build"
 Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory "$stage\UEK188\Lab" -Force | Out-Null
-Copy-Item "$root\Setup\iso\autounattend.xml", "$root\Setup\iso\setup.ps1" $stage  # nur diese zwei, keine alten Reste
-$xml = [IO.File]::ReadAllText("$stage\autounattend.xml") -replace '(<Key>/IMAGE/INDEX</Key><Value>)\d+', "`${1}$($info.Index)" -replace '<UILanguage>[^<]+</UILanguage>', "<UILanguage>$($info.Sprache)</UILanguage>"
+Copy-Item "$root\Setup\iso\autounattend.xml", "$root\Setup\iso\setup.ps1" $stage  # only these two, no old leftovers
+$xml = [IO.File]::ReadAllText("$stage\autounattend.xml") -replace '(<Key>/IMAGE/INDEX</Key><Value>)\d+', "`${1}$($info.Index)" -replace '<UILanguage>[^<]+</UILanguage>', "<UILanguage>$($info.Language)</UILanguage>"
 [IO.File]::WriteAllText("$stage\autounattend.xml", $xml, (New-Object Text.UTF8Encoding $false))
 Copy-Item "$root\Lab\*.ps1" "$stage\UEK188\Lab"
 New-Item -ItemType Directory "$stage\UEK188\Unterlagen" -Force | Out-Null
@@ -45,14 +45,14 @@ $fsi.FileSystemsToCreate = 7   # ISO9660 + Joliet + UDF
 $fsi.VolumeName = 'UEK188'
 $fsi.Root.AddTree($stage, $false)
 [IsoWriter]::Save($fsi.CreateResultImage().ImageStream, $setupIso)
-"Setup-ISO: $setupIso"
+"Setup ISO: $setupIso"
 
-# VM-Dateien
+# VM files
 Remove-Item $vmDir -Recurse -Force -ErrorAction SilentlyContinue
-if (Test-Path $vmDir) { throw "Der Ordner $vmDir ist noch in Gebrauch. VMware schliessen und nochmals starten." }
+if (Test-Path $vmDir) { throw "The folder $vmDir is still in use. Close VMware and start again." }
 New-Item -ItemType Directory $vmDir | Out-Null
 & "$vmw\vmware-vdiskmanager.exe" -c -s 100GB -a lsilogic -t 0 "$vmDir\UEK188-Win11Edu.vmdk" | Out-Null
-if ($LASTEXITCODE) { throw 'Virtuelle Festplatte konnte nicht erstellt werden' }
+if ($LASTEXITCODE) { throw 'The virtual disk could not be created' }
 
 $cfg = @"
 .encoding = "UTF-8"
@@ -103,5 +103,5 @@ mks.enable3d = "TRUE"
 svga.graphicsMemoryKB = "4194304"
 tools.syncTime = "TRUE"
 "@
-[IO.File]::WriteAllText($vmx, $cfg, (New-Object Text.UTF8Encoding $false))  # VMware mag kein BOM
+[IO.File]::WriteAllText($vmx, $cfg, (New-Object Text.UTF8Encoding $false))  # VMware does not like a BOM
 "VM: $vmx"

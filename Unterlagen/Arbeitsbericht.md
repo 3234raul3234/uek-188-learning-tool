@@ -1,21 +1,21 @@
-# Arbeitsbericht: {{title}}
+# Work report: {{title}}
 
-**Datum:** {{date}} · **Ort:** Betrieb / ÜK / Schule · **Zeit:** _h
-**Handlungskompetenz:** (z. B. f5 Server überwachen, f6 Sicherheit, d1 automatisieren)
+**Date:** {{date}} · **Place:** company / course / school · **Time:** _h
+**Competence:** (e.g. f5 monitor servers, f6 security, d1 automate)
 
-## Auftrag
-Was war das Ziel und wer hat es verlangt?
+## Task
+What was the goal and who asked for it?
 
-## Vorgehen
+## Procedure
 1.
 
-## Probleme & Lösung
-| Problem | Ursache | Lösung |
-|---------|---------|--------|
-|         |         |        |
+## Problems & solution
+| Problem | Cause | Solution |
+|---------|-------|----------|
+|         |       |          |
 
-## Ergebnis & Test
-Wie habe ich geprüft, dass es funktioniert?
+## Result & test
+How did I check that it works?
 
-## Gelernt / nächstes Mal anders
+## Learned / do differently next time
 -

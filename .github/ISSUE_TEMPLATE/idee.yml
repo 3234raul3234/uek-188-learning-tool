@@ -1,17 +1,17 @@
-name: 💡 Idee vorschlagen
-description: Ein neues Lab oder eine Verbesserung
-title: "[Idee] "
+name: 💡 Suggest an idea
+description: A new lab or an improvement
+title: "[Idea] "
 labels: [enhancement]
 body:
   - type: textarea
-    id: idee
+    id: idea
     attributes:
-      label: Deine Idee
-      description: Was soll es geben oder besser werden?
+      label: Your idea
+      description: What should be added or improved?
     validations:
       required: true
   - type: textarea
-    id: warum
+    id: why
     attributes:
-      label: Wofür hilft das?
-      description: z. B. passt zu einem ÜK-Tag oder einem Handlungsziel
+      label: How does it help?
+      description: e.g. fits a course day or a learning objective

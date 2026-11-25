@@ -1,69 +1,69 @@
-# ÜK 188 Lernkarten
+# UEK 188 Flashcards
 
-Erst selbst antworten, dann aufklappen.
+Answer yourself first, then expand.
 
 ## DHCP
-> [!question]- Welche 4 Schritte hat DHCP (DORA)?
-> **D**iscover (Client sucht per Broadcast) → **O**ffer (Server bietet IP an) → **R**equest (Client fordert sie an) → **A**cknowledge (Server bestätigt).
+> [!question]- What are the 4 steps of DHCP (DORA)?
+> **D**iscover (client searches by broadcast) → **O**ffer (server offers an IP) → **R**equest (client requests it) → **A**cknowledge (server confirms).
 
-> [!question]- Was ist ein Scope, eine Reservierung und ein Ausschluss?
-> Scope = IP-Bereich, den der Server vergibt. Reservierung = feste IP für eine MAC-Adresse. Ausschluss = Adressen im Scope, die nie vergeben werden (z. B. für Server und Drucker).
+> [!question]- What is a scope, a reservation and an exclusion?
+> Scope = IP range the server hands out. Reservation = fixed IP for a MAC address. Exclusion = addresses in the scope that are never handed out (e.g. for servers and printers).
 
-> [!question]- Ein Client hat 169.254.x.x. Was bedeutet das?
-> APIPA: Der Client hat keinen DHCP-Server erreicht. Prüfen: Kabel/VLAN, läuft der DHCP-Dienst, ist der Scope voll, fehlt ein DHCP-Relay?
+> [!question]- A client has 169.254.x.x. What does that mean?
+> APIPA: the client did not reach a DHCP server. Check: cable/VLAN, is the DHCP service running, is the scope full, is a DHCP relay missing?
 
 ## DNS
-> [!question]- Nenne die wichtigsten DNS-Records.
-> A (Name → IPv4), AAAA (Name → IPv6), CNAME (Alias), MX (Mailserver), PTR (IP → Name, Reverse Lookup), SRV (Dienste, z. B. AD-Domänencontroller finden), NS (zuständiger Nameserver).
+> [!question]- Name the most important DNS records.
+> A (name → IPv4), AAAA (name → IPv6), CNAME (alias), MX (mail server), PTR (IP → name, reverse lookup), SRV (services, e.g. finding AD domain controllers), NS (responsible name server).
 
-> [!question]- Warum ist DNS für Active Directory so wichtig?
-> Clients finden die Domänencontroller über SRV-Records. Ohne funktionierendes DNS gibt es keine Anmeldung, keine GPOs und keinen Domänenbeitritt.
+> [!question]- Why is DNS so important for Active Directory?
+> Clients find the domain controllers via SRV records. Without working DNS there is no logon, no GPOs and no domain join.
 
-> [!question]- Mit welchen Befehlen testest du DNS?
-> `nslookup name`, `Resolve-DnsName name`, `ipconfig /flushdns`, `ipconfig /all` (welcher DNS-Server ist eingetragen?).
+> [!question]- Which commands do you use to test DNS?
+> `nslookup name`, `Resolve-DnsName name`, `ipconfig /flushdns`, `ipconfig /all` (which DNS server is configured?).
 
-## Active Directory & Berechtigungen
-> [!question]- Was ist der Unterschied zwischen Domäne, OU und Gruppe?
-> Domäne = Verwaltungs- und Sicherheitsgrenze. OU = Ordner zum Strukturieren; dort hängen GPOs. Gruppe = sammelt Benutzer, um ihnen Berechtigungen zu geben.
+## Active Directory & permissions
+> [!question]- What is the difference between a domain, an OU and a group?
+> Domain = administrative and security boundary. OU = folder for structuring; GPOs are linked there. Group = collects users to give them permissions.
 
-> [!question]- Was bedeutet AGDLP?
-> **A**ccounts kommen in **G**lobale Gruppen, diese in **D**omänenlokale Gruppen, und diese bekommen die **P**ermissions. Berechtigungen nie direkt an Benutzer vergeben.
+> [!question]- What does AGDLP mean?
+> **A**ccounts go into **G**lobal groups, these into **D**omain **L**ocal groups, and these get the **P**ermissions. Never give permissions directly to users.
 
-> [!question]- Freigabe- und NTFS-Berechtigung widersprechen sich. Was gilt?
-> Über das Netzwerk gilt die restriktivere der beiden. Lokal gilt nur NTFS. Ein explizites Verweigern schlägt ein Zulassen.
+> [!question]- Share and NTFS permissions contradict each other. Which applies?
+> Over the network the more restrictive of the two applies. Locally only NTFS applies. An explicit deny beats an allow.
 
-> [!question]- Was ist Vererbung bei NTFS und wann unterbricht man sie?
-> Unterordner übernehmen die Rechte des übergeordneten Ordners. Man unterbricht sie, wenn ein Ordner strenger geschützt sein muss (z. B. Buchhaltung oder HR).
+> [!question]- What is inheritance in NTFS and when do you break it?
+> Subfolders take over the permissions of the parent folder. You break it when a folder has to be protected more strictly (e.g. accounting or HR).
 
-> [!question]- Was ist das Prinzip der minimalen Rechte (Least Privilege)?
-> Jeder bekommt nur die Rechte, die er für seine Arbeit braucht, und nicht mehr.
+> [!question]- What is the principle of least privilege?
+> Everyone gets only the rights they need for their work, and no more.
 
-## Betrieb & Überwachung
-> [!question]- Welche Starttypen hat ein Windows-Dienst?
-> Automatisch, Automatisch (verzögert), Manuell (auch Trigger-Start) und Deaktiviert.
+## Operations & monitoring
+> [!question]- Which start types does a Windows service have?
+> Automatic, Automatic (delayed start), Manual (also trigger start) and Disabled.
 
-> [!question]- Welche Werte überwacht man bei einem Server mindestens?
-> CPU, RAM, freien Speicherplatz, Netzwerk, ob die Dienste laufen (Verfügbarkeit) und das Ereignisprotokoll (Fehler, Anmeldungen).
+> [!question]- Which values do you monitor on a server at least?
+> CPU, RAM, free disk space, network, whether the services are running (availability) and the event log (errors, logons).
 
-> [!question]- Was ist ein Schwellwert und warum gibt es Warnung und Kritisch?
-> Ein Grenzwert, ab dem ein Alarm kommt. Die Warnung lässt Zeit zu reagieren, bevor der Wert kritisch wird und der Service ausfällt.
+> [!question]- What is a threshold and why are there warning and critical levels?
+> A limit from which an alarm is raised. The warning gives you time to react before the value becomes critical and the service fails.
 
-> [!question]- Nenne Monitoring-Tools und ein Protokoll dafür.
-> PRTG, Zabbix, Checkmk, Nagios; Windows: Leistungsüberwachung, Ereignisanzeige. Protokolle: SNMP, WMI.
+> [!question]- Name monitoring tools and a protocol for them.
+> PRTG, Zabbix, Checkmk, Nagios; Windows: Performance Monitor, Event Viewer. Protocols: SNMP, WMI.
 
-> [!question]- Wo findest du Fehler eines Dienstes unter Windows?
-> In der Ereignisanzeige unter Windows-Protokolle → System bzw. Anwendung, in PowerShell mit `Get-WinEvent`.
+> [!question]- Where do you find errors of a service in Windows?
+> In the Event Viewer under Windows Logs → System or Application, in PowerShell with `Get-WinEvent`.
 
-## Updates & Patches
-> [!question]- Wie läuft sauberes Patch-Management ab?
-> Updates prüfen → zuerst in einer Testgruppe installieren → testen → für alle freigeben → Betriebsdoku nachführen. Vorher ein Backup oder einen Snapshot machen.
+## Updates & patches
+> [!question]- What does clean patch management look like?
+> Review updates → install in a test group first → test → release for everyone → update the operations documentation. Make a backup or snapshot first.
 
-> [!question]- Was ist WSUS bzw. ein Softwareverteilungssystem?
-> Ein zentraler Server, der Updates freigibt und an die Clients verteilt, z. B. WSUS, Intune oder SCCM/MECM. So hat man die Kontrolle darüber, was wann installiert wird.
+> [!question]- What is WSUS or a software distribution system?
+> A central server that approves updates and distributes them to the clients, e.g. WSUS, Intune or SCCM/MECM. That way you control what is installed and when.
 
-> [!question]- Was ist der Patch Tuesday?
-> Am 2. Dienstag im Monat veröffentlicht Microsoft seine regulären Sicherheitsupdates.
+> [!question]- What is Patch Tuesday?
+> On the 2nd Tuesday of the month Microsoft publishes its regular security updates.
 
-## Dokumentation
-> [!question]- Was gehört in eine Betriebsdokumentation?
-> Systemübersicht (Server, IPs, Rollen), Services und ihre Abhängigkeiten, Berechtigungskonzept, Patch-Stand, Monitoring-Schwellwerte, Notfall- und Wiederherstellungsablauf, Änderungsprotokoll.
+## Documentation
+> [!question]- What belongs in operations documentation?
+> System overview (servers, IPs, roles), services and their dependencies, permission concept, patch level, monitoring thresholds, emergency and recovery procedure, change log.

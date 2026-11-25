@@ -1,4 +1,4 @@
-# Grosse/erzeugte Dateien nicht ins Repo
+# Large/generated files are not part of the repo
 VM/
 Teilen/
 *.iso
