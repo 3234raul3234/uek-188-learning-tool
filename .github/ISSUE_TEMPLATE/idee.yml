@@ -1,0 +1,17 @@
+name: 💡 Idee vorschlagen
+description: Ein neues Lab oder eine Verbesserung
+title: "[Idee] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Deine Idee
+      description: Was soll es geben oder besser werden?
+    validations:
+      required: true
+  - type: textarea
+    id: warum
+    attributes:
+      label: Wofür hilft das?
+      description: z. B. passt zu einem ÜK-Tag oder einem Handlungsziel

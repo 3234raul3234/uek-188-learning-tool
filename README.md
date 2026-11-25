@@ -1,6 +1,6 @@
 # ÜK 188 Lern-Tool
 
-> 🚧 **Beta-Version:** Das Tool wird noch entwickelt. Es kann Fehler geben, und Aufgaben können sich noch ändern. Probleme oder Ideen bitte unter [Issues](https://github.com/3234raul3234/uek-188-learning-tool/issues) melden.
+> 🚧 **Beta-Version:** Das Tool wird noch entwickelt. Es kann Fehler geben, und Aufgaben können sich noch ändern. Probleme oder Ideen bitte unter [Issues](https://github.com/3234raul3234/uek-188-learning-tool/issues/new/choose) melden. Was neu ist, steht im [Changelog](CHANGELOG.md).
 
 Ein Übungsprogramm für den **ÜK 188** (Services betreiben, warten und überwachen).
 Du bekommst eine Windows-VM mit **15 Aufgaben**. Das Programm sagt dir sofort, ob du sie richtig gelöst hast.

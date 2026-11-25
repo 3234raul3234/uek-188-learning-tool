@@ -1,0 +1,35 @@
+name: 🐞 Fehler melden
+description: Etwas funktioniert nicht
+title: "[Fehler] "
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Steht oben im Lab-Trainer, z. B. "Beta 0.2"
+    validations:
+      required: true
+  - type: input
+    id: lab
+    attributes:
+      label: Welches Lab?
+      description: Nummer, oder "Installation" / "Lab-Trainer"
+    validations:
+      required: true
+  - type: textarea
+    id: was
+    attributes:
+      label: Was ist passiert?
+      description: Was hast du gemacht, und was ist dann passiert?
+    validations:
+      required: true
+  - type: textarea
+    id: erwartet
+    attributes:
+      label: Was hättest du erwartet?
+  - type: textarea
+    id: ausgabe
+    attributes:
+      label: Fehlermeldung oder Screenshot
+      description: Text aus dem Lab-Trainer hier einfügen oder ein Bild hineinziehen

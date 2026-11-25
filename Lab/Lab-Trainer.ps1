@@ -1,4 +1,5 @@
 ﻿# Fenster für lab188.ps1: Lab wählen, starten, Ordner öffnen, prüfen
+$version = 'Beta 0.2'  # bei jeder Änderung erhöhen und in CHANGELOG.md eintragen
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $lab = Join-Path $PSScriptRoot 'lab188.ps1'
@@ -14,12 +15,12 @@ function Status($n) { if (Test-Path (Join-Path $root "L$n\.bestanden")) { 'besta
 $blau = C '#2563EB'; $gruen = C '#16A34A'; $grau = C '#9CA3AF'; $hell = C '#F3F4F6'; $dunkel = C '#111827'
 $labs = Lab list 1 | Where-Object { $_ -match '^(\d+)\s+(.*?)\s*\((HZ.*)\)' } | ForEach-Object { @{ Titel = $Matches[2]; HZ = $Matches[3] -replace 'HZ', 'Handlungsziel' } }
 
-$form = New-Object Windows.Forms.Form -Property @{ Text = 'Lab-Trainer ÜK 188'; Size = '1120,720'; MinimumSize = '900,560'; StartPosition = 'CenterScreen'; BackColor = $hell; Font = (F 10) }
+$form = New-Object Windows.Forms.Form -Property @{ Text = "Lab-Trainer ÜK 188 – $version"; Size = '1120,720'; MinimumSize = '900,560'; StartPosition = 'CenterScreen'; BackColor = $hell; Font = (F 10) }
 
 # Kopfzeile
 $kopf = New-Object Windows.Forms.Panel -Property @{ Dock = 'Top'; Height = 80; Width = $form.ClientSize.Width; BackColor = (C '#1E3A8A') }  # Breite vorab, sonst landen die rechts verankerten Knöpfe ausserhalb
 $kopf.Controls.Add((New-Object Windows.Forms.Label -Property @{ Text = 'Lab-Trainer ÜK 188'; Font = (F 20 'Bold'); ForeColor = 'White'; Location = '24,10'; AutoSize = $true }))
-$kopf.Controls.Add((New-Object Windows.Forms.Label -Property @{ Text = 'Services betreiben, warten und überwachen'; Font = (F 10); ForeColor = (C '#BFDBFE'); Location = '28,50'; AutoSize = $true }))
+$kopf.Controls.Add((New-Object Windows.Forms.Label -Property @{ Text = "Services betreiben, warten und überwachen  ·  $version"; Font = (F 10); ForeColor = (C '#BFDBFE'); Location = '28,50'; AutoSize = $true }))
 $fortschritt = New-Object Windows.Forms.Label -Property @{ Font = (F 12 'Bold'); ForeColor = 'White'; TextAlign = 'MiddleRight'; Size = '260,80'; Dock = 'Right'; Padding = '0,0,24,0' }
 $kopf.Controls.Add($fortschritt)
 
