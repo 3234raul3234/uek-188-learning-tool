@@ -196,7 +196,7 @@ if ($Aktion -eq 'start') {
 }
 
 if ($Aktion -eq 'doku') {
-    # Fertiger Abschnitt für die Moodle-Dokumentation / Obsidian
+    # Fertiger Abschnitt für die eigene Dokumentation
     if (-not (Test-Path $dir)) { Write-Host "Lab $Nr nicht gestartet." -ForegroundColor Red; exit 1 }
     $pruef = & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath check $Nr -LabPfad $LabPfad 2>&1 | ForEach-Object { "$_" }
     $md = @("## Lab $Nr – $($Labs[$Nr].Titel)", '', "*$(Get-Date -Format 'dd.MM.yyyy HH:mm') auf $env:COMPUTERNAME*", '', '### Auftrag', '```', $Labs[$Nr].Auftrag.Trim(), '```', '', '### Meine Lösung')
@@ -378,9 +378,9 @@ switch ($Nr) {
         Pruefe 'checkliste-ws01.md existiert' ($ws -ne '')
         Pruefe 'Kästchen zum Abhaken' ($ti -match '\[ \]|\[x\]|☐' -and $ws -match '\[ \]|\[x\]|☐') "Schreib '- [ ] Aufgabe'"
         $punkte = @(
-            @('titan', $ti, 'RAM (4 GB)', '4\s*GB'), @('titan', $ti, 'Prozessoren (2 CPU)', 'Prozessor|CPU'), @('titan', $ti, 'Netzwerkadapter intnet-lan', 'intnet'),
+            @('titan', $ti, 'RAM (4 GB)', '4\s*GB|4096'), @('titan', $ti, 'Prozessoren (2 CPU)', 'Prozessor|CPU'), @('titan', $ti, 'Netzwerkadapter intnet-lan', 'intnet'),
             @('titan', $ti, 'Gasterweiterungen', 'Gasterweiterung|Guest Additions'), @('titan', $ti, 'Servername', 'Servername|Hostname|Computername'),
-            @('titan', $ti, 'Statische IP', 'statisch'), @('titan', $ti, 'Subnetzmaske', 'Subnetz|Maske'), @('titan', $ti, 'Gateway', 'Gateway'), @('titan', $ti, 'DNS (OPNsense)', 'DNS'),
+            @('titan', $ti, 'Statische IP', 'statisch'), @('titan', $ti, 'Subnetzmaske', 'Subnetz|Maske|255\.255\.255\.192|/26'), @('titan', $ti, 'Gateway', 'Gateway'), @('titan', $ti, 'DNS (OPNsense)', 'DNS'),
             @('titan', $ti, 'Windows-Updates', 'Update'), @('titan', $ti, 'Rolle Druck- und Dokumentdienste', 'Druck-? ?und Dokument'), @('titan', $ti, 'Druckertreiber (PCL-6)', 'Treiber|PCL'),
             @('titan', $ti, 'Freigabe pr-office', 'pr-office'), @('titan', $ti, 'Internetzugriff testen', 'Internet'),
             @('ws01', $ws, 'VirtualBox-Einstellungen', 'RAM|Arbeitsspeicher|GB'), @('ws01', $ws, 'Netzwerkadapter intnet-lan', 'intnet'), @('ws01', $ws, 'Gasterweiterungen', 'Gasterweiterung|Guest Additions'),
@@ -393,7 +393,7 @@ switch ($Nr) {
             @('ws01', $ws, 'Statische IP im Client-Bereich .66 - .115', '172\.18\.20\.(6[6-9]|[7-9]\d|10\d|11[0-5])\b'), @('ws01', $ws, 'Maske 255.255.255.192 (/26)', '255\.255\.255\.192|/26'),
             @('ws01', $ws, 'Gateway und DNS 172.18.20.65', '172\.18\.20\.65'), @('ws01', $ws, 'Tool Firefox', 'Firefox'), @('ws01', $ws, 'Tool Notepad++', 'Notepad\+\+')
         )
-        foreach ($p in $punkte) { Pruefe "$($p[0]): $($p[2])" ($p[1] -match $p[3]) }
+        foreach ($p in $punkte) { Pruefe "$($p[0]): $($p[2])" ($p[1] -match $p[3]) "Ergänze in der Checkliste $($p[0]) einen Punkt zu: $($p[2])" }
     }
     11 {
         $t = Inhalt 'spooler.md'
@@ -422,7 +422,7 @@ switch ($Nr) {
         }
     }
     13 {
-        $t = Inhalt 'netz.md'
+        $t = (Inhalt 'netz.md') -replace '[*_`]', ''  # Markdown-Fettdruck usw. ignorieren
         Pruefe 'netz.md existiert' ($t -ne '')
         $soll = [ordered]@{ 'Subnetzmaske' = '255.255.254.0'; 'Netzadresse' = '10.20.30.0'; 'Broadcast' = '10.20.31.255'; 'Erster Host' = '10.20.30.1'; 'Letzter Host' = '10.20.31.254'; 'Anzahl Hosts' = '510'; 'Hotel DHCP-Adressen' = '50' }
         $tipps = @{ 'Subnetzmaske' = '/23 = 23 Einsen'; 'Broadcast' = '/23 umfasst 2 x 256 Adressen'; 'Anzahl Hosts' = '2^(32-23) - 2'; 'Hotel DHCP-Adressen' = 'Von 66 bis 115, beide mitgezählt' }
@@ -433,15 +433,18 @@ switch ($Nr) {
         $csv = Join-Path $dir 'berechtigungen.csv'
         Pruefe 'berechtigungen.csv existiert' (Test-Path $csv)
         if (Test-Path $csv) {
-            # Abteilungen kurz: GL, AD, FO, BO, FB, CO, HK, TE (Tabelle aus der Betriebsdoku, Kap. 5.10)
+            # Abteilungen kurz: GL, AD, FO, BO, FB, CO, HK, TE (Tabelle in Unterlagen\Hotel Vier Winde.md)
             $matrix = [ordered]@{
                 'austausch' = 'GL AD FO BO FB CO HK TE'; 'front-office' = 'GL FO'; 'bo' = 'GL BO'; 'administration' = 'GL AD FB CO'; 'conv' = 'GL FB CO'; 'fobe' = 'GL CO'
                 'saal' = 'GL AD FO BO CO TE'; 'bar' = 'GL AD FO BO FB CO TE'; 'sitzungen' = 'GL AD FO BO CO TE'; 'bueros' = 'GL AD FO BO CO TE'; 'pr-office' = 'GL AD FO BO FB CO HK TE'
             }
-            function Abt($a) { switch -Regex ($a) { 'Gesch' { 'GL' } 'Admin' { 'AD' } 'Front' { 'FO' } 'Back' { 'BO' } 'Food|F&B' { 'FB' } 'Conv' { 'CO' } 'House' { 'HK' } 'Tech' { 'TE' } } }
-            $ist = @(LiesCsv $csv | Where-Object { $_.Recht -match '[SD]' } | ForEach-Object { "$($_.Freigabe.Trim().ToLower() -replace 'ü','ue' -replace '^b.ros$','bueros')|$(Abt $_.Abteilung)" })  # 'b.ros': ü ging beim Speichern ohne UTF-8 verloren
+            function Abt($a) { switch -Regex ($a.Trim()) { '^GL$|Gesch' { 'GL' } '^AD$|Admin' { 'AD' } '^FO$|Front' { 'FO' } '^BO$|Back' { 'BO' } '^FB$|Food|F&B' { 'FB' } '^CO$|Conv' { 'CO' } '^HK$|House' { 'HK' } '^TE$|Tech' { 'TE' } } }
+            # Recht vereinheitlichen: 'L,S' / 'L/S' / 'ls' -> 'LS'; Zeilen mit '-' oder leer zählen nicht
+            function Recht($r) { -join (($r.ToUpper() -replace '[^LSD]', '').ToCharArray() | Sort-Object -Unique) }
+            $ist = @(LiesCsv $csv | Where-Object { (Recht $_.Recht) } | ForEach-Object { "$($_.Freigabe.Trim().ToLower() -replace 'ü','ue' -replace '^b.ros$','bueros')|$(Abt $_.Abteilung)|$(Recht $_.Recht)" })  # 'b.ros': ü ging beim Speichern ohne UTF-8 verloren
             foreach ($f in $matrix.Keys) {
-                $sollF = @($matrix[$f].Split(' ') | ForEach-Object { "$f|$_" })
+                $r = if ($f -eq 'pr-office') { 'D' } else { 'LS' }
+                $sollF = @($matrix[$f].Split(' ') | ForEach-Object { "$f|$_|$r" })
                 $istF = @($ist | Where-Object { $_ -like "$f|*" })
                 $passt = (@($sollF | Where-Object { $istF -notcontains $_ }).Count -eq 0) -and (@($istF | Where-Object { $sollF -notcontains $_ }).Count -eq 0)
                 Pruefe "Freigabe $f" $passt 'Vergleiche Zeile für Zeile mit der Tabelle in Unterlagen\Hotel Vier Winde.md'
@@ -461,11 +464,13 @@ switch ($Nr) {
             Pruefe "Alle Benutzer erfasst ($($logins.Count - $fehlt.Count) von $($logins.Count) Logins)" ($fehlt.Count -eq 0) "Es fehlen z. B.: $($fehlt | Select-Object -First 3)"
             # Stichprobe: stimmen Vor- und Nachname zum Login?
             $namen = @{ sandel = 'Sandro Della Serra'; thokni = 'Thomas König'; gerbae = 'Gerhard Bär'; dandse = 'Daniel Düsentrieb'; petdel = 'Petro Del Duerr' }
-            $falscheNamen = @($namen.Keys | Where-Object { $k = $_; -not ($zeilen | Where-Object { $_.Login -eq $k -and "$($_.Vorname.Trim()) $($_.Nachname.Trim())" -eq $namen[$k] }) })
+            # Umlaute gehen beim Speichern ohne UTF-8 verloren (König -> K?nig): an ihrer Stelle jedes Zeichen erlauben
+            $falscheNamen = @($namen.Keys | Where-Object { $k = $_; $re = '^' + ([regex]::Escape($namen[$k]) -replace '[äöüÄÖÜ]', '.') + '$'
+                    -not ($zeilen | Where-Object { $_.Login -eq $k -and "$($_.Vorname.Trim()) $($_.Nachname.Trim())" -match $re }) })
             Pruefe 'Vor- und Nachnamen korrekt erfasst' ($falscheNamen.Count -eq 0) "Prüfe die Namen zu: $($falscheNamen -join ', ')"
         }
-        $skript = Inhalt 'pruefen.ps1'
-        Pruefe 'pruefen.ps1 berechnet das Soll-Login' ($skript -match 'Substring|\[0\.\.2\]' -and $skript -match 'ToLower|-replace') 'Das Skript soll aus Vorname und Nachname das Login nach der Regel berechnen'
+        $skript = ((Inhalt 'pruefen.ps1') -split '\r?\n' | Where-Object { $_ -notmatch '^\s*#' }) -join "`n"  # Kommentare zählen nicht
+        Pruefe 'pruefen.ps1 berechnet das Soll-Login' ($skript -match 'Substring|\.Remove\(|\[0\.\.2\]|-match' -and $skript -match 'ToLower|-replace|-creplace') 'Das Skript soll aus Vorname und Nachname das Login nach der Regel berechnen (3 Zeichen nehmen, Umlaute ersetzen, klein schreiben)'
         $abw = @((Inhalt 'abweichungen.txt') -split '\r?\n' | ForEach-Object Trim | Where-Object { $_ })
         foreach ($a in 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra') { Pruefe "Abweichung $a gefunden" ($abw -ccontains $a) }
         $falsch = @($abw | Where-Object { 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra' -cnotcontains $_ })

@@ -1,5 +1,5 @@
 ﻿# Fenster für lab188.ps1: Lab wählen, starten, Ordner öffnen, prüfen
-$version = 'Beta 0.3'  # bei jeder Änderung erhöhen und in CHANGELOG.md eintragen
+$version = 'Beta 0.4'  # bei jeder Änderung erhöhen und in CHANGELOG.md eintragen
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $lab = Join-Path $PSScriptRoot 'lab188.ps1'
@@ -65,7 +65,7 @@ function Willkommen {
     $text.Clear()
     $text.SelectionFont = F 16 'Bold'; $text.SelectionColor = $dunkel; $text.AppendText("Willkommen!`n`n")
     $text.SelectionFont = F 11; $text.SelectionColor = (C '#4B5563')
-    $text.AppendText("1.  Links ein Lab auswählen`n2.  ""Lab starten"" zeigt dir den Auftrag`n3.  ""Ordner öffnen"" und die Aufgabe lösen`n4.  ""Prüfen"" kontrolliert dein Ergebnis`n5.  ""Doku erstellen"" macht dir einen Abschnitt für die Moodle-Dokumentation`n`nOben rechts: ""Quiz"" fragt dich die Lernkarten ab.")
+    $text.AppendText("1.  Links ein Lab auswählen`n2.  ""Lab starten"" zeigt dir den Auftrag`n3.  ""Ordner öffnen"" und die Aufgabe lösen`n4.  ""Prüfen"" kontrolliert dein Ergebnis`n5.  ""Doku erstellen"" macht dir einen Abschnitt für deine Dokumentation`n`nOben rechts: ""Quiz"" fragt dich die Lernkarten ab.")
 }
 function Aktualisiere {
     $fertig = @(1..$labs.Count | Where-Object { (Status $_) -eq 'bestanden' }).Count
@@ -189,7 +189,9 @@ function LabsUpdaten {
         }
         $neu[(Join-Path $haupt $n)] = $b
     }
-    $geaendert = @($neu.Keys | Where-Object { -not (Test-Path $_) -or [Convert]::ToBase64String([IO.File]::ReadAllBytes($_)) -ne [Convert]::ToBase64String($neu[$_]) })
+    # Zeilenenden ignorieren: ZIP liefert CRLF, GitHub-Raw LF (sonst meldet der erste Klick immer "neu")
+    function Text($bytes) { [Text.Encoding]::UTF8.GetString($bytes) -replace "`r", '' }
+    $geaendert = @($neu.Keys | Where-Object { -not (Test-Path $_) -or (Text ([IO.File]::ReadAllBytes($_))) -cne (Text $neu[$_]) })
     if (-not $geaendert) { return 'aktuell' }
     foreach ($ziel in $geaendert) { New-Item -ItemType Directory (Split-Path $ziel) -Force | Out-Null; if (Test-Path $ziel) { Copy-Item $ziel "$ziel.bak" -Force }; [IO.File]::WriteAllBytes($ziel, $neu[$ziel]) }
     "neu: $(($geaendert | ForEach-Object { Split-Path $_ -Leaf }) -join ', ')"

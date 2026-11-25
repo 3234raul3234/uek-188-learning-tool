@@ -14,23 +14,24 @@ if (-not (Test-Path "$vmw\vmrun.exe")) {
     exit 1
 }
 
-# 2. Dateien nach C:\UEK188 (das Setup erwartet diesen Ordner)
-if ($quelle -ne $ziel) {
-    Info "Kopiere Dateien nach $ziel ..."
-    New-Item -ItemType Directory $ziel -Force | Out-Null
-    foreach ($d in 'Lab', 'Setup', 'Unterlagen', 'README.md', 'CHANGELOG.md', 'LICENSE', 'START.cmd') { if (Test-Path "$quelle\$d") { Copy-Item "$quelle\$d" $ziel -Recurse -Force } }
-}
-
-# 3. Schon eine VM da? Nicht ungefragt ueberschreiben
+# 2. Schon eine VM da? Nicht ungefragt ueberschreiben (zuerst fragen, dann erst etwas aendern)
 if (Test-Path "$ziel\VM\UEK188-Win11Edu.vmx") {
     $a = [Windows.Forms.MessageBox]::Show("Es gibt schon eine UEK188-VM.`nNeu bauen? Die alte VM wird dabei GELOESCHT.", 'UeK 188', 'YesNo', 'Warning')
     if ($a -ne 'Yes') { Write-Host 'Abgebrochen, nichts geaendert.'; exit 0 }
 }
 
-# 4. Windows-11-ISO waehlen
+# 3. Windows-11-ISO waehlen
 Info 'Waehle die Windows-11-ISO-Datei aus ...'
 $dlg = New-Object Windows.Forms.OpenFileDialog -Property @{ Title = 'Windows-11-ISO auswaehlen'; Filter = 'ISO-Datei (*.iso)|*.iso'; InitialDirectory = "$env:USERPROFILE\Downloads" }
-if ($dlg.ShowDialog() -ne 'OK') { Write-Host 'Keine ISO gewaehlt, abgebrochen.' -ForegroundColor Red; exit 1 }
+if ($dlg.ShowDialog() -ne 'OK') { Write-Host 'Keine ISO gewaehlt, abgebrochen, nichts geaendert.' -ForegroundColor Red; exit 1 }
+
+# 4. Dateien nach C:\UEK188 (das Setup erwartet diesen Ordner)
+if ($quelle -ne $ziel) {
+    Info "Kopiere Dateien nach $ziel ..."
+    New-Item -ItemType Directory $ziel -Force | Out-Null
+    Remove-Item "$ziel\Setup\iso\UEK188" -Recurse -Force -ErrorAction SilentlyContinue  # Rest einer alten Version
+    foreach ($d in 'Lab', 'Setup', 'Unterlagen', 'README.md', 'CHANGELOG.md', 'LICENSE', 'START.cmd') { if (Test-Path "$quelle\$d") { Copy-Item "$quelle\$d" $ziel -Recurse -Force } }
+}
 
 # 5. VM bauen und starten
 Info 'Baue die VM ...'
@@ -41,6 +42,12 @@ if ($LASTEXITCODE) {
     Write-Host "`nDie VM ist gebaut, liess sich aber nicht starten. Oeffne in VMware: File > Open > $ziel\VM\UEK188-Win11Edu.vmx und klick auf 'Power on'." -ForegroundColor Yellow
     exit 1
 }
+
+# Verknuepfung auf dem PC fuer die VM-Knoepfe (VM aktualisieren / zuruecksetzen)
+$lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\Lab-Trainer UeK 188 (PC).lnk")
+$lnk.TargetPath = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+$lnk.Arguments = "-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$ziel\Lab\Lab-Trainer.ps1`""
+$lnk.IconLocation = "$env:WINDIR\System32\imageres.dll,109"; $lnk.Save()
 
 Write-Host "`nFERTIG! Windows installiert sich jetzt in der VM von selbst (ca. 30 Minuten)." -ForegroundColor Green
 Write-Host 'Nichts anklicken, bis der Desktop mit "Lab-Trainer UeK 188" erscheint.' -ForegroundColor Green

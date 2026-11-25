@@ -71,7 +71,7 @@
         <HideLocalAccountScreen>true</HideLocalAccountScreen>
         <ProtectYourPC>3</ProtectYourPC>
       </OOBE>
-      <!-- Kein eigenes Konto: nur der eingebaute lokale Administrator (wie ws01 im Moodle-Auftrag) -->
+      <!-- Kein eigenes Konto: nur der eingebaute lokale Administrator (wie ws01 im Szenario) -->
       <UserAccounts>
         <AdministratorPassword><Value>Lab188-uek</Value><PlainText>true</PlainText></AdministratorPassword>
       </UserAccounts>

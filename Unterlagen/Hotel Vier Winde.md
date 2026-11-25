@@ -25,7 +25,7 @@ Die Labs spielen in der (fiktiven) Firma **Hotel Vier Winde AG**. Hier stehen al
 - **ws01:** nur das lokale Administratorkonto ist aktiv · Tools: Firefox, Notepad++
 - **Drucker pr-office:** HP Color LaserJet Enterprise Flow MFP X58045z, Treiber Universal PCL-6
 
-## Benutzer (Kapitel 5.3 – 5.9)
+## Benutzer
 | Abteilung | Vorname | Nachname | Login |
 |---|---|---|---|
 | Administration | Sandro | Della Serra | sandel |
@@ -55,7 +55,7 @@ Die Labs spielen in der (fiktiven) Firma **Hotel Vier Winde AG**. Hier stehen al
 | Technik | Petro | Del Duerr | petdel |
 | Technik | Nico | Berger | nicber |
 
-## Serverfreigaben und Berechtigungen (Kapitel 5.10)
+## Serverfreigaben und Berechtigungen
 L = Lesen/Ausführen · S = Schreiben · D = Drucken · – = keine Rechte
 
 | Freigabe | Geschäftsleitung | Administration | Front-Office | Back-Office | Food & Beverage | Convention | Housekeeping | Technik |

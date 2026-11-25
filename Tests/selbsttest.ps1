@@ -128,6 +128,9 @@ Nico;Berger;nicber;Technik
 $alle = if ($Nur) { $Nur } else { 1..15 }
 $fehler = 0
 foreach ($n in $alle) {
+    if ($n -eq 12 -and (Get-ScheduledTask Lab188-Monitor -ErrorAction SilentlyContinue)) {
+        Write-Host 'Lab 12: übersprungen, auf diesem PC gibt es schon eine echte Aufgabe Lab188-Monitor (wird nicht angefasst)' -ForegroundColor Yellow; continue
+    }
     Lab start $n | Out-Null
     $roh = Lab check $n
     $ungeloest = -not ($roh -match 'Lab bestanden')

@@ -1,5 +1,7 @@
-﻿# Baut Setup-ISO + VMware-VM "UEK188 Windows 11 Edu". Nochmals ausfuehren = VM neu aufsetzen (alte VM-Dateien werden ersetzt).
-param([string]$WinIso = 'C:\ISO-Images\Windows\Win11_25H2_EnglishInternational_x64_v2.iso')
+﻿# Baut Setup-ISO + VMware-VM "UEK188 Windows 11 Edu" (normalerweise über START.cmd).
+# Direkt:  vm-erstellen.ps1 -WinIso "C:\Pfad\zu\Windows11.iso"   (alte VM-Dateien werden ersetzt)
+param([string]$WinIso)
+if (-not $WinIso) { throw 'Bitte START.cmd verwenden oder die ISO angeben: vm-erstellen.ps1 -WinIso "C:\Pfad\zu\Windows11.iso"' }
 $ErrorActionPreference = 'Stop'
 $root = 'C:\UEK188'; $vmDir = "$root\VM"; $vmx = "$vmDir\UEK188-Win11Edu.vmx"; $setupIso = "$root\Setup\UEK188-Setup.iso"
 $vmw = (Get-ItemProperty 'HKLM:\SOFTWARE\VMware, Inc.\VMware Workstation', 'HKLM:\SOFTWARE\WOW6432Node\VMware, Inc.\VMware Workstation' -ErrorAction SilentlyContinue | Select-Object -First 1).InstallPath
@@ -17,11 +19,12 @@ $info = & "$PSScriptRoot\iso-info.ps1" -Iso $WinIso
 $stage = "$root\Setup\iso-build"
 Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory "$stage\UEK188\Lab" -Force | Out-Null
-Copy-Item "$root\Setup\iso\*" $stage -Recurse
+Copy-Item "$root\Setup\iso\autounattend.xml", "$root\Setup\iso\setup.ps1" $stage  # nur diese zwei, keine alten Reste
 $xml = [IO.File]::ReadAllText("$stage\autounattend.xml") -replace '(<Key>/IMAGE/INDEX</Key><Value>)\d+', "`${1}$($info.Index)" -replace '<UILanguage>[^<]+</UILanguage>', "<UILanguage>$($info.Sprache)</UILanguage>"
 [IO.File]::WriteAllText("$stage\autounattend.xml", $xml, (New-Object Text.UTF8Encoding $false))
 Copy-Item "$root\Lab\*.ps1" "$stage\UEK188\Lab"
-if (Test-Path "$root\Unterlagen") { Copy-Item "$root\Unterlagen" "$stage\UEK188\Unterlagen" -Recurse }
+New-Item -ItemType Directory "$stage\UEK188\Unterlagen" -Force | Out-Null
+Copy-Item "$root\Unterlagen\*" "$stage\UEK188\Unterlagen" -ErrorAction SilentlyContinue
 if (-not ('IsoWriter' -as [type])) {
     Add-Type -TypeDefinition @'
 using System.IO; using System.Runtime.InteropServices; using System.Runtime.InteropServices.ComTypes;
