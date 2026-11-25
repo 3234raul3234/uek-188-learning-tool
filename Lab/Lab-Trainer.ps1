@@ -169,6 +169,37 @@ function KopfKnopf($t, $x, $aktion) {
     $b.Add_Click($aktion); $kopf.Controls.Add($b); $b.BringToFront()
 }
 KopfKnopf 'Quiz' 430 { Quiz }
+
+# Auto-Update von GitHub (nicht im Git-Repo auf dem Host, sonst würden lokale Änderungen überschrieben)
+function LabsUpdaten {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $basis = 'https://raw.githubusercontent.com/3234raul3234/uek-188-learning-tool/main/Lab/'
+    $wc = New-Object Net.WebClient; $neu = @{}
+    foreach ($n in 'lab188.ps1', 'Lab-Trainer.ps1') {
+        try { $b = $wc.DownloadData($basis + $n) } catch { return "[X] Download fehlgeschlagen ($n). Ist die VM mit dem Internet verbunden?" }
+        $tmp = Join-Path $env:TEMP "uek188-$n"; [IO.File]::WriteAllBytes($tmp, $b)
+        $e = $null; [Management.Automation.Language.Parser]::ParseFile($tmp, [ref]$null, [ref]$e) | Out-Null
+        if ($e -or $b.Length -lt 1000) { return "[X] $n auf GitHub ist fehlerhaft. Es wurde nichts geändert." }  # nie eine kaputte Version einspielen
+        $neu[$n] = $b
+    }
+    $geaendert = @($neu.Keys | Where-Object { $alt = Join-Path $PSScriptRoot $_; -not (Test-Path $alt) -or [Convert]::ToBase64String([IO.File]::ReadAllBytes($alt)) -ne [Convert]::ToBase64String($neu[$_]) })
+    if (-not $geaendert) { return 'aktuell' }
+    foreach ($n in $geaendert) { $ziel = Join-Path $PSScriptRoot $n; if (Test-Path $ziel) { Copy-Item $ziel "$ziel.bak" -Force }; [IO.File]::WriteAllBytes($ziel, $neu[$n]) }
+    "neu: $($geaendert -join ', ')"
+}
+if (-not (Test-Path (Join-Path (Split-Path $PSScriptRoot) '.git'))) {
+    KopfKnopf 'Update' 590 {
+        $form.Cursor = 'WaitCursor'; $m = LabsUpdaten; $form.Cursor = 'Default'
+        if ($m -eq 'aktuell') { Meldung 'Du hast schon die neueste Version.' }
+        elseif ($m -like 'neu:*') {
+            Meldung "Update installiert ($($m.Substring(5))).`nDer Lab-Trainer startet jetzt neu."
+            Start-Process powershell.exe "-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+            $form.Close()
+        }
+        else { Zeige @('=== Update ===', '', $m) }
+    }
+}
+
 if (-not (Test-Path 'C:\UEK188\Uebungen') -and (Test-Path $vmx)) {
     KopfKnopf 'VM aktualisieren' 590 { $form.Cursor = 'WaitCursor'; $m = VmAktualisieren; $form.Cursor = 'Default'; Zeige @('=== VM ===', '', $m) }
     KopfKnopf 'VM zurücksetzen' 750 {
