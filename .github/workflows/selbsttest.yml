@@ -1,0 +1,27 @@
+name: Selbsttest
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  labs:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax aller PowerShell-Skripte
+        shell: powershell
+        run: |
+          $fehler = 0
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $e = $null
+            [Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$e) | Out-Null
+            if ($e) { Write-Host "::error file=$($_.Name)::$($e[0].Message)"; $fehler++ } else { Write-Host "ok  $($_.Name)" }
+          }
+          exit $fehler
+
+      - name: Alle 15 Labs (ungelöst rot, gelöst grün)
+        shell: powershell
+        run: .\Tests\selbsttest.ps1
