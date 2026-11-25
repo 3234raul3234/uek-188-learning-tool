@@ -43,9 +43,11 @@ $c = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
         Schreib 'L4\patches.md' $t
     }
     5  = {
-        $os = Get-CimInstance Win32_OperatingSystem; $n = Get-NetIPConfiguration | Where-Object IPv4DefaultGateway | Select-Object -First 1
-        Schreib 'L5\steckbrief.md' ("Hostname: $env:COMPUTERNAME`nBetriebssystem: $($os.Caption -replace 'Microsoft ')`nIPv4: $($n.IPv4Address.IPAddress)`nGateway: $($n.IPv4DefaultGateway.NextHop)`n" +
-            "DNS: $(($n.DNSServer.ServerAddresses | Where-Object { $_ -match '^\d+\.' }) -join ', ')`nRAM GB: $([math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB))")
+        $os = Get-CimInstance Win32_OperatingSystem; $r = Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Select-Object -First 1
+        $ip = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $r.InterfaceIndex | Select-Object -First 1).IPAddress
+        $dns = (Get-DnsClientServerAddress -AddressFamily IPv4 -InterfaceIndex $r.InterfaceIndex).ServerAddresses -join ', '
+        Schreib 'L5\steckbrief.md' ("Hostname: $env:COMPUTERNAME`nBetriebssystem: $($os.Caption -replace 'Microsoft ')`nIPv4: $ip`nGateway: $($r.NextHop)`n" +
+            "DNS: $dns`nRAM GB: $([math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB))")
     }
     6  = {
         @(('www.microsoft.com', 443), ('1.1.1.1', 53), ('localhost', 3389), ('localhost', 445)) | ForEach-Object { [pscustomobject]@{ Ziel = $_[0]; Port = $_[1]; Erreichbar = (Port $_[0] $_[1]) } } | Export-Csv "$L\L6\netztest.csv" -NoTypeInformation

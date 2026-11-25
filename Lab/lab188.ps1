@@ -71,7 +71,7 @@ Erstelle L5\steckbrief.md über DEINEN PC mit diesen Zeilen:
   DNS: ...
   RAM GB: ...
 Der Check vergleicht alles mit dem echten System.
-Tipp: hostname, ipconfig /all, Get-NetIPConfiguration, Get-CimInstance Win32_OperatingSystem / Win32_ComputerSystem
+Tipp: hostname, ipconfig /all, Get-NetIPAddress, Get-NetRoute, Get-CimInstance Win32_OperatingSystem / Win32_ComputerSystem
 "@
     }
     6 = @{ Titel = 'Netzwerk und Remotezugriff testen (HZ 2)'; Auftrag = @"
@@ -297,10 +297,12 @@ switch ($Nr) {
         $t = Inhalt 'steckbrief.md'
         Pruefe 'steckbrief.md existiert' ($t -ne '')
         $os = Get-CimInstance Win32_OperatingSystem
-        $netz = @(Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway })
-        $ips = @($netz | ForEach-Object { $_.IPv4Address.IPAddress })
-        $gws = @($netz | ForEach-Object { $_.IPv4DefaultGateway.NextHop })
-        $dns = @($netz | ForEach-Object { $_.DNSServer.ServerAddresses } | Where-Object { $_ -match '^\d+\.' })
+        # nicht Get-NetIPConfiguration: stürzt bei manchen Netzwerkadaptern ab
+        $routen = @(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+        $ifs = @($routen | ForEach-Object InterfaceIndex)
+        $ips = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $ifs -contains $_.InterfaceIndex } | ForEach-Object IPAddress)
+        $gws = @($routen | ForEach-Object NextHop)
+        $dns = @(Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $ifs -contains $_.InterfaceIndex } | ForEach-Object ServerAddresses)
         $ram = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
         Pruefe "Hostname ($env:COMPUTERNAME)" ($t -match "Hostname:\s*$env:COMPUTERNAME") 'hostname'
         Pruefe 'Betriebssystem' ($t -match ('Betriebssystem:.*' + [regex]::Escape(($os.Caption -replace 'Microsoft ', '')))) "Genau so: $($os.Caption -replace 'Microsoft ', '')"
