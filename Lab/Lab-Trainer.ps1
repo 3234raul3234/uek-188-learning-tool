@@ -1,10 +1,8 @@
 ﻿# Fenster für lab188.ps1: Lab wählen, starten, Ordner öffnen, prüfen
-$version = 'Beta 0.2'  # bei jeder Änderung erhöhen und in CHANGELOG.md eintragen
+$version = 'Beta 0.3'  # bei jeder Änderung erhöhen und in CHANGELOG.md eintragen
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $lab = Join-Path $PSScriptRoot 'lab188.ps1'
-$cfg = Join-Path (Split-Path $PSScriptRoot) 'unterlagen-pfad.txt'  # optional, lokal (nicht im Repo): Ordner mit Lernkarten
-$vault = if (Test-Path $cfg) { (Get-Content $cfg -Raw -Encoding UTF8).Trim() } else { '' }
 $root = if (Test-Path 'C:\UEK188\Uebungen') { 'C:\UEK188\Uebungen' } else { Join-Path $env:USERPROFILE 'Lab188' }
 
 function Lab($aktion, $nr) { & powershell -NoProfile -ExecutionPolicy Bypass -File $lab $aktion $nr 2>&1 | ForEach-Object { "$_" } }
@@ -20,8 +18,8 @@ $form = New-Object Windows.Forms.Form -Property @{ Text = "Lab-Trainer ÜK 188 �
 # Kopfzeile
 $kopf = New-Object Windows.Forms.Panel -Property @{ Dock = 'Top'; Height = 80; Width = $form.ClientSize.Width; BackColor = (C '#1E3A8A') }  # Breite vorab, sonst landen die rechts verankerten Knöpfe ausserhalb
 $kopf.Controls.Add((New-Object Windows.Forms.Label -Property @{ Text = 'Lab-Trainer ÜK 188'; Font = (F 20 'Bold'); ForeColor = 'White'; Location = '24,10'; AutoSize = $true }))
-$kopf.Controls.Add((New-Object Windows.Forms.Label -Property @{ Text = "Services betreiben, warten und überwachen  ·  $version"; Font = (F 10); ForeColor = (C '#BFDBFE'); Location = '28,50'; AutoSize = $true }))
-$fortschritt = New-Object Windows.Forms.Label -Property @{ Font = (F 12 'Bold'); ForeColor = 'White'; TextAlign = 'MiddleRight'; Size = '260,80'; Dock = 'Right'; Padding = '0,0,24,0' }
+$kopf.Controls.Add((New-Object Windows.Forms.Label -Property @{ Text = 'Services betreiben, warten und überwachen'; Font = (F 10); ForeColor = (C '#BFDBFE'); Location = '28,50'; AutoSize = $true }))
+$fortschritt = New-Object Windows.Forms.Label -Property @{ Font = (F 12 'Bold'); ForeColor = 'White'; TextAlign = 'MiddleRight'; Size = '210,80'; Dock = 'Right'; Padding = '0,0,20,0' }
 $kopf.Controls.Add($fortschritt)
 
 # Lab-Karten links
@@ -71,7 +69,7 @@ function Willkommen {
 }
 function Aktualisiere {
     $fertig = @(1..$labs.Count | Where-Object { (Status $_) -eq 'bestanden' }).Count
-    $fortschritt.Text = "$fertig von $($labs.Count) bestanden"
+    $fortschritt.Text = "$fertig von $($labs.Count) bestanden`n$version"
     $liste.Invalidate()
 }
 function Nr { if ($liste.SelectedIndex -lt 0) { [Windows.Forms.MessageBox]::Show('Wähle zuerst links ein Lab aus.', 'Lab-Trainer') | Out-Null; return $null }; $liste.SelectedIndex + 1 }
@@ -106,7 +104,8 @@ Knopf 'Doku erstellen' (C '#7C3AED') 180 {
 
 # Quiz mit den Lernkarten: was du nicht weisst, kommt öfter
 function Quiz {
-    $datei = @((Join-Path (Split-Path $PSScriptRoot) 'Unterlagen\ÜK 188 Lernkarten.md'), "$vault\ÜK 188 Lernkarten.md") | Where-Object { Test-Path $_ } | Select-Object -First 1
+    $datei = Join-Path (Split-Path $PSScriptRoot) 'Unterlagen\ÜK 188 Lernkarten.md'
+    if (-not (Test-Path $datei)) { $datei = $null }
     if (-not $datei) { Meldung 'Lernkarten nicht gefunden.'; return }
     $karten = @(); $akt = $null
     foreach ($z in Get-Content $datei -Encoding UTF8) {
@@ -153,43 +152,50 @@ function Quiz {
 }
 
 # VM-Steuerung, nur auf dem Host (VMware lässt sich nur von aussen steuern)
-$vmx = 'C:\UEK188\VM\UEK188-Win11Edu.vmx'; $vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
+$vmx = 'C:\UEK188\VM\UEK188-Win11Edu.vmx'
+$vmw = (Get-ItemProperty 'HKLM:\SOFTWARE\VMware, Inc.\VMware Workstation', 'HKLM:\SOFTWARE\WOW6432Node\VMware, Inc.\VMware Workstation' -ErrorAction SilentlyContinue | Select-Object -First 1).InstallPath
+$vmrun = Join-Path $(if ($vmw) { $vmw } else { 'C:\Program Files\VMware\VMware Workstation' }) 'vmrun.exe'
 function VmGast { $pw = (Get-Content 'C:\UEK188\Setup\Zugangsdaten.txt' | Where-Object { $_ -match '^Passwort:\s*(.+)' } | ForEach-Object { $Matches[1].Trim() }); @('-T', 'ws', '-gu', 'Administrator', '-gp', $pw) }
 function VmAktualisieren {
-    $g = VmGast; $quelle = $vault
+    $g = VmGast
     $dateien = @(Get-ChildItem "$PSScriptRoot\*.ps1" | ForEach-Object { , @($_.FullName, "C:\UEK188\Lab\$($_.Name)") })
-    foreach ($u in "$quelle\ÜK 188 Lernkarten.md", "$quelle\Hotel Vier Winde.md", "$quelle\..\..\..\99 Vorlagen\Arbeitsbericht.md") { if (Test-Path $u) { $dateien += , @($u, "C:\UEK188\Unterlagen\$(Split-Path $u -Leaf)") } }
+    & $vmrun @g createDirectoryInGuest $vmx 'C:\UEK188\Unterlagen' 2>&1 | Out-Null  # fehlt in älteren VMs
+    foreach ($u in Get-ChildItem (Join-Path (Split-Path $PSScriptRoot) 'Unterlagen\*.md') -ErrorAction SilentlyContinue) { $dateien += , @($u.FullName, "C:\UEK188\Unterlagen\$($u.Name)") }
     $fehler = 0
     foreach ($d in $dateien) { & $vmrun @g CopyFileFromHostToGuest $vmx $d[0] $d[1] | Out-Null; if ($LASTEXITCODE) { $fehler++ } }
     if ($fehler) { "VM aktualisieren: $fehler von $($dateien.Count) Dateien fehlgeschlagen (läuft die VM?)" } else { "VM aktualisiert: $($dateien.Count) Dateien" }
 }
 function KopfKnopf($t, $x, $aktion) {
-    $b = New-Object Windows.Forms.Button -Property @{ Text = $t; Size = '150,36'; FlatStyle = 'Flat'; BackColor = (C '#1E40AF'); ForeColor = 'White'; Font = (F 10 'Bold'); Cursor = 'Hand'; Anchor = 'Top,Right' }
+    $b = New-Object Windows.Forms.Button -Property @{ Text = $t; Size = '130,36'; FlatStyle = 'Flat'; BackColor = (C '#1E40AF'); ForeColor = 'White'; Font = (F 9.5 'Bold'); Cursor = 'Hand'; Anchor = 'Top,Right' }
     $b.FlatAppearance.BorderColor = (C '#60A5FA')
     $b.Location = New-Object Drawing.Point ($form.ClientSize.Width - $x), 22
     $b.Add_Click($aktion); $kopf.Controls.Add($b); $b.BringToFront()
 }
-KopfKnopf 'Quiz' 430 { Quiz }
+KopfKnopf 'Quiz' 350 { Quiz }
 
 # Auto-Update von GitHub (nicht im Git-Repo auf dem Host, sonst würden lokale Änderungen überschrieben)
 function LabsUpdaten {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $basis = 'https://raw.githubusercontent.com/3234raul3234/uek-188-learning-tool/main/Lab/'
+    $basis = 'https://raw.githubusercontent.com/3234raul3234/uek-188-learning-tool/main/'
+    $haupt = Split-Path $PSScriptRoot
     $wc = New-Object Net.WebClient; $neu = @{}
-    foreach ($n in 'lab188.ps1', 'Lab-Trainer.ps1') {
-        try { $b = $wc.DownloadData($basis + $n) } catch { return "[X] Download fehlgeschlagen ($n). Ist die VM mit dem Internet verbunden?" }
-        $tmp = Join-Path $env:TEMP "uek188-$n"; [IO.File]::WriteAllBytes($tmp, $b)
-        $e = $null; [Management.Automation.Language.Parser]::ParseFile($tmp, [ref]$null, [ref]$e) | Out-Null
-        if ($e -or $b.Length -lt 1000) { return "[X] $n auf GitHub ist fehlerhaft. Es wurde nichts geändert." }  # nie eine kaputte Version einspielen
-        $neu[$n] = $b
+    foreach ($n in 'Lab/lab188.ps1', 'Lab/Lab-Trainer.ps1', 'Unterlagen/ÜK 188 Lernkarten.md', 'Unterlagen/Hotel Vier Winde.md', 'Unterlagen/Arbeitsbericht.md') {
+        $url = $basis + (($n -split '/' | ForEach-Object { [uri]::EscapeDataString($_) }) -join '/')
+        try { $b = $wc.DownloadData($url) } catch { return "[X] Download fehlgeschlagen ($n). Ist die VM mit dem Internet verbunden?" }
+        if ($n -like '*.ps1') {
+            $tmp = Join-Path $env:TEMP "uek188-$(Split-Path $n -Leaf)"; [IO.File]::WriteAllBytes($tmp, $b)
+            $e = $null; [Management.Automation.Language.Parser]::ParseFile($tmp, [ref]$null, [ref]$e) | Out-Null
+            if ($e -or $b.Length -lt 1000) { return "[X] $n auf GitHub ist fehlerhaft. Es wurde nichts geändert." }  # nie eine kaputte Version einspielen
+        }
+        $neu[(Join-Path $haupt $n)] = $b
     }
-    $geaendert = @($neu.Keys | Where-Object { $alt = Join-Path $PSScriptRoot $_; -not (Test-Path $alt) -or [Convert]::ToBase64String([IO.File]::ReadAllBytes($alt)) -ne [Convert]::ToBase64String($neu[$_]) })
+    $geaendert = @($neu.Keys | Where-Object { -not (Test-Path $_) -or [Convert]::ToBase64String([IO.File]::ReadAllBytes($_)) -ne [Convert]::ToBase64String($neu[$_]) })
     if (-not $geaendert) { return 'aktuell' }
-    foreach ($n in $geaendert) { $ziel = Join-Path $PSScriptRoot $n; if (Test-Path $ziel) { Copy-Item $ziel "$ziel.bak" -Force }; [IO.File]::WriteAllBytes($ziel, $neu[$n]) }
-    "neu: $($geaendert -join ', ')"
+    foreach ($ziel in $geaendert) { New-Item -ItemType Directory (Split-Path $ziel) -Force | Out-Null; if (Test-Path $ziel) { Copy-Item $ziel "$ziel.bak" -Force }; [IO.File]::WriteAllBytes($ziel, $neu[$ziel]) }
+    "neu: $(($geaendert | ForEach-Object { Split-Path $_ -Leaf }) -join ', ')"
 }
 if (-not (Test-Path (Join-Path (Split-Path $PSScriptRoot) '.git'))) {
-    KopfKnopf 'Update' 590 {
+    KopfKnopf 'Update' 490 {
         $form.Cursor = 'WaitCursor'; $m = LabsUpdaten; $form.Cursor = 'Default'
         if ($m -eq 'aktuell') { Meldung 'Du hast schon die neueste Version.' }
         elseif ($m -like 'neu:*') {
@@ -202,8 +208,16 @@ if (-not (Test-Path (Join-Path (Split-Path $PSScriptRoot) '.git'))) {
 }
 
 if (-not (Test-Path 'C:\UEK188\Uebungen') -and (Test-Path $vmx)) {
-    KopfKnopf 'VM aktualisieren' 590 { $form.Cursor = 'WaitCursor'; $m = VmAktualisieren; $form.Cursor = 'Default'; Zeige @('=== VM ===', '', $m) }
-    KopfKnopf 'VM zurücksetzen' 750 {
+    KopfKnopf 'VM aktualisieren' 630 { $form.Cursor = 'WaitCursor'; $m = VmAktualisieren; $form.Cursor = 'Default'; Zeige @('=== VM ===', '', $m) }
+    KopfKnopf 'VM zurücksetzen' 770 {
+        if ((& $vmrun -T ws listSnapshots $vmx) -notcontains 'Frisch') {
+            # Snapshot gibt es erst, wenn jemand ihn anlegt: jetzt anbieten
+            $neu = [Windows.Forms.MessageBox]::Show("Es gibt noch keinen Snapshot 'Frisch'.`nDen aktuellen Zustand der VM jetzt als 'Frisch' speichern?`n(Am besten direkt nach der Installation, das dauert einige Minuten.)", 'Snapshot anlegen', 'YesNo', 'Question')
+            if ($neu -ne 'Yes') { return }
+            $form.Cursor = 'WaitCursor'; & $vmrun -T ws snapshot $vmx Frisch | Out-Null; $r = $LASTEXITCODE; $form.Cursor = 'Default'
+            Zeige @('=== Snapshot ===', '', $(if ($r) { '[X] Snapshot konnte nicht angelegt werden' } else { '[OK] Snapshot "Frisch" angelegt. Ab jetzt setzt dieser Knopf die VM darauf zurück.' }))
+            return
+        }
         $ok = [Windows.Forms.MessageBox]::Show("Die VM wird auf den frischen Zustand (Snapshot 'Frisch') zurückgesetzt.`nAlle Übungen IN DER VM gehen verloren.`n`nWeiter?", 'VM zurücksetzen', 'YesNo', 'Warning')
         if ($ok -ne 'Yes') { return }
         $form.Cursor = 'WaitCursor'

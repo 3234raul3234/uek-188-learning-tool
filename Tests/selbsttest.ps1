@@ -119,7 +119,7 @@ Petro;Del Duerr;petdel;Technik
 Nico;Berger;nicber;Technik
 "@ | ConvertFrom-Csv -Delimiter ';'
         $u | Export-Csv "$L\L15\benutzer.csv" -NoTypeInformation -Encoding UTF8
-        Schreib 'L15\pruefen.ps1' '# berechnet das Soll-Login'
+        Schreib 'L15\pruefen.ps1' 'Import-Csv benutzer.csv | ForEach-Object { ($_.Vorname.Substring(0,3) + ($_.Nachname -replace " ","" -replace "ä","ae").Substring(0,3)).ToLower() }'
         $abw = $u | Where-Object { $_.Login -cne ($_.Vorname.Substring(0, 3) + ($_.Nachname -replace ' ', '' -replace 'ä', 'ae' -replace 'ö', 'oe' -replace 'ü', 'ue').Substring(0, 3)).ToLower() } | ForEach-Object Login
         Schreib 'L15\abweichungen.txt' ($abw -join "`n")
     }

@@ -2,18 +2,26 @@
 param([string]$WinIso = 'C:\ISO-Images\Windows\Win11_25H2_EnglishInternational_x64_v2.iso')
 $ErrorActionPreference = 'Stop'
 $root = 'C:\UEK188'; $vmDir = "$root\VM"; $vmx = "$vmDir\UEK188-Win11Edu.vmx"; $setupIso = "$root\Setup\UEK188-Setup.iso"
-$vmw = 'C:\Program Files\VMware\VMware Workstation'
+$vmw = (Get-ItemProperty 'HKLM:\SOFTWARE\VMware, Inc.\VMware Workstation', 'HKLM:\SOFTWARE\WOW6432Node\VMware, Inc.\VMware Workstation' -ErrorAction SilentlyContinue | Select-Object -First 1).InstallPath
+if (-not $vmw) { $vmw = 'C:\Program Files\VMware\VMware Workstation' }
+$vmw = $vmw.TrimEnd('\')
+if (-not (Test-Path "$vmw\vmrun.exe")) { throw "VMware Workstation nicht gefunden ($vmw)" }
 if (-not (Test-Path $WinIso)) { throw "Windows-ISO fehlt: $WinIso" }
-if (Test-Path $vmx) { & "$vmw\vmrun.exe" -T ws stop $vmx hard 2>$null; Start-Sleep 3 }  # laufende VM hält die ISO fest
+if (Test-Path $vmx) { try { & "$vmw\vmrun.exe" -T ws stop $vmx hard 2>&1 | Out-Null } catch {}; Start-Sleep 3 }  # laufende VM hält die ISO fest
 
-# Setup-ISO aus Setup\iso bauen (autounattend.xml, setup.ps1, Labs)
-Remove-Item "$root\Setup\iso\UEK188" -Recurse -Force -ErrorAction SilentlyContinue
-# Labs aus dem Repo (C:\UEK188\Lab), Unterlagen aus dem Obsidian-Vault
-$cfg = "$root\unterlagen-pfad.txt"  # optional, lokal (nicht im Repo)
-$quelle = if (Test-Path $cfg) { (Get-Content $cfg -Raw -Encoding UTF8).Trim() } else { "$root\Unterlagen" }
-New-Item -ItemType Directory "$root\Setup\iso\UEK188\Lab", "$root\Setup\iso\UEK188\Unterlagen" -Force | Out-Null
-Copy-Item "$root\Lab\*.ps1" "$root\Setup\iso\UEK188\Lab"
-Copy-Item "$quelle\ÜK 188 Lernkarten.md", "$quelle\Hotel Vier Winde.md", "$quelle\..\..\..\99 Vorlagen\Arbeitsbericht.md" "$root\Setup\iso\UEK188\Unterlagen" -ErrorAction SilentlyContinue  # Unterlagen sind optional (nicht im Repo)
+# Sprache und Education-Index aus der ISO lesen, damit jede Sprache und jede Multi-Edition-ISO funktioniert
+$info = & "$PSScriptRoot\iso-info.ps1" -Iso $WinIso
+"ISO: Sprache $($info.Sprache), Windows 11 Education = Index $($info.Index)"
+
+# Setup-ISO aus einem Bau-Ordner: autounattend.xml (angepasst), setup.ps1, Labs, Unterlagen
+$stage = "$root\Setup\iso-build"
+Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory "$stage\UEK188\Lab" -Force | Out-Null
+Copy-Item "$root\Setup\iso\*" $stage -Recurse
+$xml = [IO.File]::ReadAllText("$stage\autounattend.xml") -replace '(<Key>/IMAGE/INDEX</Key><Value>)\d+', "`${1}$($info.Index)" -replace '<UILanguage>[^<]+</UILanguage>', "<UILanguage>$($info.Sprache)</UILanguage>"
+[IO.File]::WriteAllText("$stage\autounattend.xml", $xml, (New-Object Text.UTF8Encoding $false))
+Copy-Item "$root\Lab\*.ps1" "$stage\UEK188\Lab"
+if (Test-Path "$root\Unterlagen") { Copy-Item "$root\Unterlagen" "$stage\UEK188\Unterlagen" -Recurse }
 if (-not ('IsoWriter' -as [type])) {
     Add-Type -TypeDefinition @'
 using System.IO; using System.Runtime.InteropServices; using System.Runtime.InteropServices.ComTypes;
@@ -32,12 +40,13 @@ public static class IsoWriter {
 $fsi = New-Object -ComObject IMAPI2FS.MsftFileSystemImage
 $fsi.FileSystemsToCreate = 7   # ISO9660 + Joliet + UDF
 $fsi.VolumeName = 'UEK188'
-$fsi.Root.AddTree("$root\Setup\iso", $false)
+$fsi.Root.AddTree($stage, $false)
 [IsoWriter]::Save($fsi.CreateResultImage().ImageStream, $setupIso)
 "Setup-ISO: $setupIso"
 
 # VM-Dateien
 Remove-Item $vmDir -Recurse -Force -ErrorAction SilentlyContinue
+if (Test-Path $vmDir) { throw "Der Ordner $vmDir ist noch in Gebrauch. VMware schliessen und nochmals starten." }
 New-Item -ItemType Directory $vmDir | Out-Null
 & "$vmw\vmware-vdiskmanager.exe" -c -s 100GB -a lsilogic -t 0 "$vmDir\UEK188-Win11Edu.vmdk" | Out-Null
 if ($LASTEXITCODE) { throw 'Virtuelle Festplatte konnte nicht erstellt werden' }
@@ -77,9 +86,7 @@ sata0:0.fileName = "$WinIso"
 sata0:1.present = "TRUE"
 sata0:1.deviceType = "cdrom-image"
 sata0:1.fileName = "$setupIso"
-sata0:2.present = "TRUE"
-sata0:2.deviceType = "cdrom-image"
-sata0:2.fileName = "$vmw\windows.iso"
+$(if (Test-Path "$vmw\windows.iso") { "sata0:2.present = `"TRUE`"`nsata0:2.deviceType = `"cdrom-image`"`nsata0:2.fileName = `"$vmw\windows.iso`"" })
 ethernet0.present = "TRUE"
 ethernet0.connectionType = "nat"
 ethernet0.virtualDev = "e1000e"

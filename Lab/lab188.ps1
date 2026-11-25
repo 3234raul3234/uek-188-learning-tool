@@ -25,6 +25,7 @@ function Rechte($pfad, $sid) {
     $r
 }
 function Hat([int]$r, $recht) { $m = [int][Security.AccessControl.FileSystemRights]::$recht; ($r -band $m) -eq $m }
+function LiesCsv($pfad) { $kopf = Get-Content $pfad -TotalCount 1; if ($kopf -match ';' -and $kopf -notmatch ',') { Import-Csv $pfad -Delimiter ';' } else { Import-Csv $pfad } }  # Excel speichert mit ;
 function Inhalt($name) { $f = Join-Path $dir $name; if (Test-Path $f) { Get-Content $f -Raw } else { '' } }
 function IstWahr($wert) { "$wert" -match '^(true|ja|wahr|1)$' }
 function PortOffen($ziel, $port) { $c = New-Object Net.Sockets.TcpClient; try { $c.ConnectAsync($ziel, $port).Wait(2000) -and $c.Connected } catch { $false } finally { $c.Dispose() } }
@@ -108,13 +109,12 @@ Tipp: Die Programme stehen in der Registry unter
   HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*
 "@
     }
-    10 = @{ Titel = 'Checklisten titan und ws01 (HZ 1, Auftrag 2)'; Auftrag = @"
-Das ist dein Moodle-Auftrag 2. Der Check prüft, ob deine Checklisten vollständig sind.
+    10 = @{ Titel = 'Checklisten titan und ws01 (HZ 1)'; Auftrag = @"
+Plane die Einrichtung der zwei VMs des Hotels als Checklisten. Der Check prüft, ob sie vollständig sind.
   Erstelle L10\checkliste-titan.md und L10\checkliste-ws01.md (mit Kästchen, z. B. '- [ ] Aufgabe')
-  Infos: Betriebsdokumentation, Netzwerkplan und Moodle-Auftrag 2 und 3.
-Denk an: VirtualBox-Einstellungen (RAM, CPU, Netzwerkadapter), Gasterweiterungen, Name, IP-Konfiguration,
-Updates, Druckerserver, nur lokales Administratorkonto auf ws01, Tools, Kontrolle, ...
-Danach kannst du die Checklisten in Moodle hochladen.
+  Infos: C:\UEK188\Unterlagen\Hotel Vier Winde.md (Netz, Systeme, Drucker, Tools)
+Denk an: VM-Einstellungen (RAM, CPU, Netzwerkadapter), Gasterweiterungen, Name, IP-Konfiguration,
+Updates, Druckerserver mit Freigabe pr-office, nur lokales Administratorkonto auf ws01, Tools, Kontrolle, ...
 "@
     }
     11 = @{ Titel = 'Dienst Druckwarteschlange untersuchen (HZ 1, 2)'; Auftrag = @"
@@ -146,14 +146,14 @@ Erstelle L13\netz.md mit genau diesen Zeilen:
   Erster Host: ...
   Letzter Host: ...
   Anzahl Hosts: ...
-Und zwei Fragen zum bestehenden Hotelnetz 172.18.20.64/26 (Betriebsdoku/Netzwerkplan):
+Und zwei Fragen zum bestehenden Hotelnetz 172.18.20.64/26 (C:\UEK188\Unterlagen\Hotel Vier Winde.md):
   Hotel DHCP-Adressen: ...        (wie viele Adressen hat der Bereich .66 bis .115?)
   172.18.20.130 im Hotelnetz: Ja/Nein
 "@
     }
     14 = @{ Titel = 'Berechtigungsmatrix Hotel Vier Winde (HZ 5)'; Auftrag = @"
 Vorbereitung für Tag 3 (Benutzer, Gruppen, Permissions): Übertrage die Tabelle 'Serverfreigaben und
-Berechtigungen' aus der Betriebsdoku in L14\berechtigungen.csv mit den Spalten Freigabe, Abteilung, Recht
+Berechtigungen' aus C:\UEK188\Unterlagen\Hotel Vier Winde.md in L14\berechtigungen.csv mit den Spalten Freigabe, Abteilung, Recht
   - eine Zeile pro Freigabe und Abteilung, die Rechte hat (keine Zeilen für '-')
   - Freigaben: Austausch, Front-office, BO, Administration, Conv, FOBE, Saal, Bar, Sitzungen, Büros, pr-office
   - Abteilungen: Geschäftsleitung, Administration, Front-Office, Back-Office, Food & Beverage, Convention, Housekeeping, Technik
@@ -163,7 +163,7 @@ Kommt dir in der Tabelle etwas komisch vor? Notier es auch, Fehler in der Doku f
 "@
     }
     15 = @{ Titel = 'Logins in der Betriebsdoku prüfen (HZ 1, 5)'; Auftrag = @"
-Bevor du die Benutzer im AD anlegst, prüfst du die Liste in der Betriebsdoku (Kapitel 5.3 - 5.9).
+Bevor du die Benutzer im AD anlegst, prüfst du die Benutzerliste in C:\UEK188\Unterlagen\Hotel Vier Winde.md.
 Die Regel für Logins: 3 Buchstaben Vorname + 3 Buchstaben Nachname, alles klein,
 ä/ö/ü = ae/oe/ue, Leerzeichen weglassen. Beispiel: Gerhard Bär -> gerbae
   1. Erfasse alle Benutzer in L15\benutzer.csv mit den Spalten Vorname, Nachname, Login, Abteilung
@@ -190,7 +190,8 @@ if ($Aktion -eq 'start') {
     }
     Write-Host "`n=== Lab $Nr - $($Labs[$Nr].Titel) ===  Ordner: $LabPfad`n" -ForegroundColor Cyan
     Write-Host $Labs[$Nr].Auftrag
-    Write-Host "`nFertig? ->  lab188.ps1 check $Nr" -ForegroundColor Cyan
+    $extra = if ($PSBoundParameters.ContainsKey('LabPfad')) { ' -LabPfad "' + $LabPfad + '"' } else { '' }
+    Write-Host "`nFertig? ->  lab188.ps1 check $Nr$extra" -ForegroundColor Cyan
     return
 }
 
@@ -242,7 +243,7 @@ switch ($Nr) {
         $csv = Join-Path $dir 'dienste.csv'
         Pruefe 'dienste.csv existiert' (Test-Path $csv) 'Export-Csv -Path ... -NoTypeInformation'
         if (Test-Path $csv) {
-            $ist = @(Import-Csv $csv)
+            $ist = @(LiesCsv $csv)
             $spalten = if ($ist.Count) { $ist[0].PSObject.Properties.Name } else { @() }
             Pruefe 'Spalten Name, DisplayName, Status' (('Name', 'DisplayName', 'Status' | Where-Object { $spalten -notcontains $_ }).Count -eq 0) 'Select-Object Name, DisplayName, Status'
             $soll = @(Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.StartType -eq 'Automatic' -and $_.Status -ne 'Running' } | ForEach-Object Name)
@@ -263,7 +264,7 @@ switch ($Nr) {
             & powershell -NoProfile -ExecutionPolicy Bypass -File $s
             & powershell -NoProfile -ExecutionPolicy Bypass -File $s -SchwelleGB 999999
             $ErrorActionPreference = 'Stop'
-            $rows = @(if (Test-Path $csv) { Import-Csv $csv })
+            $rows = @(if (Test-Path $csv) { LiesCsv $csv })
             Pruefe '3 Aufrufe = 3 Zeilen in monitor.csv' ($rows.Count -eq 3) 'Export-Csv -Append, Pfad mit $PSScriptRoot'
             if ($rows.Count -ge 3) {
                 $r = $rows[0]
@@ -315,7 +316,7 @@ switch ($Nr) {
         $csv = Join-Path $dir 'netztest.csv'
         Pruefe 'netztest.csv existiert' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(Import-Csv $csv)
+            $ist = @(LiesCsv $csv)
             foreach ($z in @(('www.microsoft.com', 443), ('1.1.1.1', 53), ('localhost', 3389), ('localhost', 445))) {
                 $zeile = $ist | Where-Object { $_.Ziel -eq $z[0] -and "$($_.Port)" -eq "$($z[1])" } | Select-Object -First 1
                 $echt = PortOffen $z[0] $z[1]
@@ -330,7 +331,7 @@ switch ($Nr) {
         $csv = Join-Path $dir 'fehler.csv'
         Pruefe 'fehler.csv existiert' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(Import-Csv $csv | ForEach-Object { "$($_.ProviderName)|$($_.Id)" })
+            $ist = @(LiesCsv $csv | ForEach-Object { "$($_.ProviderName)|$($_.Id)" })
             $soll = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Level = 2 } -MaxEvents 10 -ErrorAction SilentlyContinue | ForEach-Object { "$($_.ProviderName)|$($_.Id)" })
             # shortcut: neue Fehler können seit dem Export dazugekommen sein, darum 2 Abweichungen Toleranz
             $treffer = @($soll | Where-Object { $ist -contains $_ }).Count
@@ -344,7 +345,7 @@ switch ($Nr) {
         $csv = Join-Path $dir 'benutzer.csv'
         Pruefe 'benutzer.csv existiert' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(Import-Csv $csv)
+            $ist = @(LiesCsv $csv)
             try { $admins = @(Get-LocalGroupMember -SID $SID_ADMINS | ForEach-Object { $_.SID.Value }) }
             catch { $admins = @(([ADSI]"WinNT://./$((New-Object Security.Principal.SecurityIdentifier $SID_ADMINS).Translate([Security.Principal.NTAccount]).Value.Split('\')[1]),group").Invoke('Members') | ForEach-Object { (New-Object Security.Principal.SecurityIdentifier ([byte[]]$_.GetType().InvokeMember('objectSid', 'GetProperty', $null, $_, $null)), 0).Value }) }
             foreach ($u in Get-LocalUser) {
@@ -359,7 +360,7 @@ switch ($Nr) {
         $csv = Join-Path $dir 'software.csv'
         Pruefe 'software.csv existiert' (Test-Path $csv)
         if (Test-Path $csv) {
-            $ist = @(Import-Csv $csv)
+            $ist = @(LiesCsv $csv)
             $spalten = if ($ist.Count) { $ist[0].PSObject.Properties.Name } else { @() }
             Pruefe 'Spalten DisplayName, DisplayVersion, Publisher' (('DisplayName', 'DisplayVersion', 'Publisher' | Where-Object { $spalten -notcontains $_ }).Count -eq 0)
             $pfade = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
@@ -438,12 +439,12 @@ switch ($Nr) {
                 'saal' = 'GL AD FO BO CO TE'; 'bar' = 'GL AD FO BO FB CO TE'; 'sitzungen' = 'GL AD FO BO CO TE'; 'bueros' = 'GL AD FO BO CO TE'; 'pr-office' = 'GL AD FO BO FB CO HK TE'
             }
             function Abt($a) { switch -Regex ($a) { 'Gesch' { 'GL' } 'Admin' { 'AD' } 'Front' { 'FO' } 'Back' { 'BO' } 'Food|F&B' { 'FB' } 'Conv' { 'CO' } 'House' { 'HK' } 'Tech' { 'TE' } } }
-            $ist = @(Import-Csv $csv | Where-Object { $_.Recht -match '[SD]' } | ForEach-Object { "$($_.Freigabe.Trim().ToLower() -replace 'ü','ue')|$(Abt $_.Abteilung)" })
+            $ist = @(LiesCsv $csv | Where-Object { $_.Recht -match '[SD]' } | ForEach-Object { "$($_.Freigabe.Trim().ToLower() -replace 'ü','ue' -replace '^b.ros$','bueros')|$(Abt $_.Abteilung)" })  # 'b.ros': ü ging beim Speichern ohne UTF-8 verloren
             foreach ($f in $matrix.Keys) {
                 $sollF = @($matrix[$f].Split(' ') | ForEach-Object { "$f|$_" })
                 $istF = @($ist | Where-Object { $_ -like "$f|*" })
                 $passt = (@($sollF | Where-Object { $istF -notcontains $_ }).Count -eq 0) -and (@($istF | Where-Object { $sollF -notcontains $_ }).Count -eq 0)
-                Pruefe "Freigabe $f" $passt "Soll: $($matrix[$f])"
+                Pruefe "Freigabe $f" $passt 'Vergleiche Zeile für Zeile mit der Tabelle in Unterlagen\Hotel Vier Winde.md'
             }
         }
         $n = Inhalt 'notiz.md'
@@ -454,11 +455,17 @@ switch ($Nr) {
         Pruefe 'benutzer.csv existiert' (Test-Path $csv)
         if (Test-Path $csv) {
             $logins = @('sandel', 'paumic', 'stefuc', 'thokni', 'gerbae', 'Leobru', 'simtau', 'petzac', 'norber', 'sanmar', 'Danber', 'thokro', 'stemei', 'thokle', 'Benkra', 'antber', 'petweb', 'Stetra', 'girpol', 'gerber', 'piaman', 'andkav', 'dandse', 'petdel', 'nicber')
-            $ist = @(Import-Csv $csv | ForEach-Object { $_.Login })
+            $zeilen = @(LiesCsv $csv)
+            $ist = @($zeilen | ForEach-Object { $_.Login })
             $fehlt = @($logins | Where-Object { $ist -notcontains $_ })
             Pruefe "Alle Benutzer erfasst ($($logins.Count - $fehlt.Count) von $($logins.Count) Logins)" ($fehlt.Count -eq 0) "Es fehlen z. B.: $($fehlt | Select-Object -First 3)"
+            # Stichprobe: stimmen Vor- und Nachname zum Login?
+            $namen = @{ sandel = 'Sandro Della Serra'; thokni = 'Thomas König'; gerbae = 'Gerhard Bär'; dandse = 'Daniel Düsentrieb'; petdel = 'Petro Del Duerr' }
+            $falscheNamen = @($namen.Keys | Where-Object { $k = $_; -not ($zeilen | Where-Object { $_.Login -eq $k -and "$($_.Vorname.Trim()) $($_.Nachname.Trim())" -eq $namen[$k] }) })
+            Pruefe 'Vor- und Nachnamen korrekt erfasst' ($falscheNamen.Count -eq 0) "Prüfe die Namen zu: $($falscheNamen -join ', ')"
         }
-        Pruefe 'pruefen.ps1 existiert' (Test-Path (Join-Path $dir 'pruefen.ps1'))
+        $skript = Inhalt 'pruefen.ps1'
+        Pruefe 'pruefen.ps1 berechnet das Soll-Login' ($skript -match 'Substring|\[0\.\.2\]' -and $skript -match 'ToLower|-replace') 'Das Skript soll aus Vorname und Nachname das Login nach der Regel berechnen'
         $abw = @((Inhalt 'abweichungen.txt') -split '\r?\n' | ForEach-Object Trim | Where-Object { $_ })
         foreach ($a in 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra') { Pruefe "Abweichung $a gefunden" ($abw -ccontains $a) }
         $falsch = @($abw | Where-Object { 'thokni', 'dandse', 'Leobru', 'Danber', 'Benkra', 'Stetra' -cnotcontains $_ })
@@ -467,4 +474,4 @@ switch ($Nr) {
 }
 
 Write-Host "`nErgebnis: $script:ok von $($script:ok + $script:fail) Punkten" -ForegroundColor Cyan
-if ($script:fail -eq 0) { Write-Host 'Lab bestanden! Jetzt kurz einen Arbeitsbericht in Obsidian schreiben.' -ForegroundColor Green }
+if ($script:fail -eq 0) { Write-Host 'Lab bestanden! Halte jetzt mit "Doku erstellen" fest, was du gemacht hast.' -ForegroundColor Green }

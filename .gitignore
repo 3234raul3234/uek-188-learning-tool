@@ -1,8 +1,7 @@
 # Grosse/erzeugte Dateien nicht ins Repo
 VM/
-Teilen/*.ova
+Teilen/
 *.iso
-Setup/iso/UEK188/
+Setup/iso-build/
 Setup/vm-setup.log
-unterlagen-pfad.txt
 CLAUDE.md
