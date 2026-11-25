@@ -1,0 +1,7 @@
+# Grosse/erzeugte Dateien nicht ins Repo
+VM/
+Teilen/*.ova
+*.iso
+Setup/iso/UEK188/
+Setup/vm-setup.log
+unterlagen-pfad.txt
