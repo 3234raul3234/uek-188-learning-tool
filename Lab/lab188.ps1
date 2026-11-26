@@ -33,143 +33,237 @@ function PortOpen($target, $port) { $c = New-Object Net.Sockets.TcpClient; try {
 
 $Labs = @{
     1 = @{ Title = 'NTFS permissions by concept (OBJ 5)'; Task = @"
-Permission concept of Example Ltd, folder: L1\Company
-  Accounting : inheritance DISABLED. Administrators = Full control, YOU = Modify (not Full control), Users = no access
-  Sales      : Users = Read & execute, but NO write
-  All        : Users = Modify
-Document everything as a table in L1\permissions.md (Folder | Group | Right | Reason).
-Tools: Explorer > Properties > Security, or icacls / Get-Acl / Set-Acl
+GOAL: Decide who may open which folder.
+(Permission = what a person may do with a folder: read, change, or nothing.)
+
+Your folder L1\Company has 3 folders. Set these permissions:
+
+Step 1 - Folder "Accounting" (secret money data):
+  - Turn OFF inheritance (= the folder no longer copies permissions from above).
+  - Administrators: Full control
+  - You: Modify (NOT Full control)
+  - Users: no access at all
+Step 2 - Folder "Sales": Users may only READ, not write.
+Step 3 - Folder "All": Users may Modify.
+Step 4 - Write a small table in L1\permissions.md:
+  Folder | Group | Right | Reason
+
+How: right-click a folder > Properties > Security tab > Edit / Advanced.
 "@
     }
     2 = @{ Title = 'Analyse services (OBJ 1, 2)'; Task = @"
-A server has problems. Find all services with start type 'Automatic' that are NOT running.
-  1. Export them to L2\services.csv with the columns Name, DisplayName, Status (use PowerShell!)
-  2. In L2\notes.md, write about one of these services: what it does and why it might be stopped.
+GOAL: Find services that should run but don't.
+(Service = a program that runs in the background, e.g. the printer service.)
+
+Step 1 - Find all services with start type "Automatic" that are NOT running.
+Step 2 - Save them with PowerShell in the file L2\services.csv
+         with the columns: Name, DisplayName, Status
+Step 3 - Pick ONE of these services. In L2\notes.md write 2-3 sentences:
+         What does it do? Why could it be stopped?
+
 Hint: Get-Service, Where-Object, Select-Object, Export-Csv -NoTypeInformation
 "@
     }
     3 = @{ Title = 'Monitoring script with threshold (OBJ 4)'; Task = @"
-Write L3\monitor.ps1. Each run appends ONE line to L3\monitor.csv (next to the script, `$PSScriptRoot).
-  Columns: Time, CPU (load in %), RAMFreeMB, CFreeGB, Status
-  Parameter: -ThresholdGB (default 20). Status = 'WARNING' if CFreeGB < ThresholdGB, otherwise 'OK'
-The check runs your script itself and compares the values with the real system.
+GOAL: Write a small script that measures your computer.
+(Threshold = a limit. Below the limit you get a warning.)
+
+Step 1 - Create the script L3\monitor.ps1
+Step 2 - Every time it runs, it adds ONE new line to L3\monitor.csv
+         (in the same folder as the script: use `$PSScriptRoot).
+Step 3 - Columns of the line:
+         Time      = date and time
+         CPU       = how busy the processor is, in %
+         RAMFreeMB = free memory in MB
+         CFreeGB   = free space on drive C: in GB
+         Status    = 'WARNING' if CFreeGB is smaller than the threshold, otherwise 'OK'
+Step 4 - The script has a parameter -ThresholdGB. If you don't give it, it is 20.
+
+The check runs your script itself and compares the numbers with your computer.
 Hint: Get-CimInstance Win32_Processor / Win32_OperatingSystem, Get-PSDrive C, Export-Csv -Append
 "@
     }
     4 = @{ Title = 'Patch documentation (OBJ 3)'; Task = @"
-Update the operations documentation: create L4\patches.md with
-  - a table of all installed updates (KB | Description | Installed on)
-  - the line 'Last update: KBxxxxxxx'
+GOAL: Write down which Windows updates are installed.
+(Patch / update = a fix from Microsoft, it has a number like KB5012345.)
+
+Step 1 - Find all installed updates.
+Step 2 - Create L4\patches.md with a table:
+         KB | Description | Installed on
+Step 3 - Below the table add one line with the newest update:
+         Last update: KBxxxxxxx
+
 Hint: Get-HotFix | Sort-Object InstalledOn
 "@
     }
     5 = @{ Title = 'System profile for the operations docs (OBJ 1)'; Task = @"
-Like at Hotel Vier Winde: before you change anything, you document the system.
-Create L5\profile.md about YOUR computer with these lines:
-  Hostname: ...
-  Operating system: ...   (e.g. Windows 11 Pro)
-  IPv4: ...
-  Gateway: ...
-  DNS: ...
-  RAM GB: ...
-The check compares everything with the real system.
-Hint: hostname, ipconfig /all, Get-NetIPAddress, Get-NetRoute, Get-CimInstance Win32_OperatingSystem / Win32_ComputerSystem
+GOAL: Write a short profile of YOUR computer.
+(Before you change a system, you always write down how it looks now.)
+
+Create L5\profile.md with exactly these 6 lines and fill in the values:
+  Hostname: ...            (name of the computer)
+  Operating system: ...    (e.g. Windows 11 Pro)
+  IPv4: ...                (IP address)
+  Gateway: ...             (the router)
+  DNS: ...                 (the DNS server)
+  RAM GB: ...              (memory, a whole number)
+
+The check compares your values with the real computer.
+Hint: hostname, ipconfig /all, Get-CimInstance Win32_OperatingSystem / Win32_ComputerSystem
 "@
     }
     6 = @{ Title = 'Test network and remote access (OBJ 2)'; Task = @"
-Check which services are reachable. Test these 4 targets:
-  www.microsoft.com port 443  |  1.1.1.1 port 53  |  localhost port 3389  |  localhost port 445
-  1. Save the result in L6\nettest.csv with the columns Target, Port, Reachable (True/False)
-  2. Explain in L6\notes.md: which service runs on port 3389 and which on port 445?
-Hint: Test-NetConnection -ComputerName <Target> -Port <Port>  ->  TcpTestSucceeded
+GOAL: Test if some services can be reached over the network.
+(Port = a "door" number. Every service listens at its own door.)
+
+Step 1 - Test these 4 targets:
+           www.microsoft.com  port 443
+           1.1.1.1            port 53
+           localhost          port 3389
+           localhost          port 445
+Step 2 - Save the result in L6\nettest.csv with the columns:
+           Target, Port, Reachable   (Reachable = True or False)
+Step 3 - In L6\notes.md explain: which service uses port 3389? Which uses port 445?
+
+Hint: Test-NetConnection -ComputerName <Target> -Port <Port>  ->  look at TcpTestSucceeded
 "@
     }
     7 = @{ Title = 'Evaluate the Event Viewer (OBJ 2, 4)'; Task = @"
-Windows monitoring: find the last 10 ERRORS in the System log.
-  1. Export them to L7\errors.csv with the columns TimeCreated, Id, ProviderName
-  2. In L7\notes.md: which source (ProviderName) appears most often and what does the error mean?
+GOAL: Find the newest errors that Windows has written down.
+(Event log = Windows' diary. It writes down errors and warnings.)
+
+Step 1 - Find the last 10 ERRORS in the "System" log.
+Step 2 - Save them in L7\errors.csv with the columns:
+           TimeCreated, Id, ProviderName   (ProviderName = who reported the error)
+Step 3 - In L7\notes.md write: which ProviderName comes up most often?
+           What could the error mean? (Search the internet if needed.)
+
 Hint: Get-WinEvent -FilterHashtable @{ LogName = 'System'; Level = 2 } -MaxEvents 10
 "@
     }
     8 = @{ Title = 'Local users and administrators (OBJ 5)'; Task = @"
-On ws01, only the local Administrator account may be enabled. Check how it looks on your computer.
-  1. Export ALL local users to L8\users.csv with the columns Name, Enabled, Admin
-     (Enabled = True/False, Admin = True/False: is the user in the Administrators group?)
-  2. In L8\notes.md: which accounts would you have to disable so that, like on ws01, only Administrator is enabled?
+GOAL: See which user accounts exist on this computer.
+(Administrator = a user who may change everything.)
+
+Step 1 - Save ALL local users in L8\users.csv with the columns:
+           Name, Enabled, Admin
+           Enabled = True/False   (is the account switched on?)
+           Admin   = True/False   (is the user in the group "Administrators"?)
+Step 2 - In L8\notes.md write: on ws01 only "Administrator" may be switched on.
+           Which accounts here would you have to switch off for that?
+
 Hint: Get-LocalUser, Get-LocalGroupMember -SID S-1-5-32-544
 "@
     }
     9 = @{ Title = 'Software inventory (OBJ 3)'; Task = @"
-Software maintenance starts with an inventory.
-  1. Export all installed programs to L9\software.csv with the columns DisplayName, DisplayVersion, Publisher
-     (without entries that have no DisplayName)
-  2. In L9\notes.md: pick 3 programs and check online whether your version is up to date.
-Hint: the programs are listed in the registry under
+GOAL: Make a list of all installed programs.
+(Inventory = a complete list of what you have.)
+
+Step 1 - Save all installed programs in L9\software.csv with the columns:
+           DisplayName, DisplayVersion, Publisher
+         Leave out lines without a DisplayName.
+Step 2 - Pick 3 programs. In L9\notes.md write if your version is the newest
+         (check on the internet).
+
+Hint: the list is in the registry at these 3 places:
   HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*
   HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*
   HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*
 "@
     }
     10 = @{ Title = 'Checklists titan and ws01 (OBJ 1)'; Task = @"
-Plan the setup of the hotel's two VMs as checklists. The check tests whether they are complete.
-  Create L10\checklist-titan.md and L10\checklist-ws01.md (with checkboxes, e.g. '- [ ] Task')
-  Information: $docs (network, systems, printer, tools)
-Think of: VM settings (RAM, CPU, network adapter), guest additions/VMware Tools, name, IP configuration,
-updates, print server with share pr-office, only the local Administrator account on ws01, tools, testing, ...
+GOAL: Plan the setup of 2 computers of the hotel as to-do lists.
+(titan = the server, ws01 = a workstation. All facts are in:
+ $docs)
+
+Step 1 - Create L10\checklist-titan.md
+Step 2 - Create L10\checklist-ws01.md
+Step 3 - Write every to-do as a checkbox line:  - [ ] what to do
+Step 4 - Think of: VM settings (RAM, CPU, network adapter), VMware Tools,
+         computer name, IP address / mask / gateway / DNS, Windows updates,
+         printer server with the share pr-office (titan), only the Administrator
+         account on ws01, programs to install, and testing at the end.
+
+The check tells you which topics are still missing.
 "@
     }
     11 = @{ Title = 'Investigate the Print Spooler service (OBJ 1, 2)'; Task = @"
-For the printer pr-office, titan needs the Print Spooler service (Spooler). Investigate it on your computer.
-Create L11\spooler.md with:
-  - display name, start type and status of the service
-  - which services it depends on
-  - path of the program file (.exe)
-  - why the spooler can be a security risk (keyword: PrintNightmare)
+GOAL: Look closely at ONE service: the Print Spooler.
+(Print Spooler = the service that sends your documents to the printer.)
+
+Create L11\spooler.md and answer these 4 points:
+  1. Display name, start type and status of the service
+  2. Which services it needs to run (dependencies)
+  3. The path of its program file (.exe)
+  4. Why it can be dangerous: search for "PrintNightmare" and explain it in 2-3 sentences
+
 Hint: Get-Service Spooler | Format-List *, Get-CimInstance Win32_Service -Filter "Name='Spooler'"
 "@
     }
     12 = @{ Title = 'Automate monitoring (OBJ 4, d1)'; Task = @"
-Your monitoring script from Lab 3 should run automatically.
-  Create a scheduled task named  Lab188-Monitor
-  - it starts powershell.exe with your L3\monitor.ps1
-  - it repeats every 15 minutes
-Prerequisite: Lab 3 is solved.
+GOAL: Let your script from Lab 3 run by itself.
+(Scheduled task = Windows starts a program for you at certain times.)
+
+Before you start: Lab 3 must be solved.
+
+Step 1 - Create a scheduled task with the name:  Lab188-Monitor
+Step 2 - It starts powershell.exe with your file L3\monitor.ps1
+Step 3 - It repeats every 15 minutes.
+
+When you are finished, delete the task again:  Unregister-ScheduledTask Lab188-Monitor
 Hint: New-ScheduledTaskAction, New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 15), Register-ScheduledTask
-Clean up when you are done:  Unregister-ScheduledTask Lab188-Monitor
 "@
     }
     13 = @{ Title = 'Subnetting Hotel Vier Winde (OBJ 1)'; Task = @"
-Hotel Vier Winde wants a guest Wi-Fi with the network 10.20.30.0/23. Calculate it yourself (no online calculator)!
-Create L13\network.md with exactly these lines:
+GOAL: Calculate a network by hand.
+(Subnetting = splitting IP addresses into networks. /23 = the first 23 bits are the network.)
+
+The hotel wants a guest Wi-Fi with the network 10.20.30.0/23.
+Calculate it yourself (no online calculator!) and create L13\network.md
+with exactly these lines:
   Subnet mask: ...
   Network address: ...
   Broadcast: ...
   First host: ...
   Last host: ...
   Number of hosts: ...
-And two questions about the existing hotel network 172.18.20.64/26 ($docs):
-  Hotel DHCP addresses: ...        (how many addresses does the range .66 to .115 have?)
+
+Then 2 questions about the hotel network 172.18.20.64/26 (see $docs):
+  Hotel DHCP addresses: ...              (how many addresses are in .66 to .115?)
   172.18.20.130 in hotel network: Yes/No
 "@
     }
     14 = @{ Title = 'Permission matrix Hotel Vier Winde (OBJ 5)'; Task = @"
-Preparation for day 3 (users, groups, permissions): transfer the table 'Server shares and permissions'
-from $docs into L14\permissions.csv with the columns Share, Department, Right
-  - one line per share and department that has rights (no lines for '-')
-  - shares: Exchange, Front-office, BO, Administration, Conv, FOBE, Hall, Bar, Meetings, Offices, pr-office
-  - departments: Management, Administration, Front Office, Back Office, Food & Beverage, Convention, Housekeeping, Technical
-  - right: R,W or P (as in the table)
-In L14\notes.md: how do you implement the share 'Exchange' with AGDLP? (Which global and domain local groups?)
-Does anything in the table look strange? Write it down too: finding errors in documentation is part of the job.
+GOAL: Turn a permission table into a list.
+(Share = a folder on the server that others can open over the network.)
+
+Step 1 - Open $docs
+         and find the table "Server shares and permissions".
+Step 2 - Create L14\permissions.csv with the columns: Share, Department, Right
+Step 3 - Write ONE line for every share and department that has rights.
+         Skip the fields with "-".
+         Example line:  Exchange,Management,"R,W"
+Step 4 - In L14\notes.md explain how you would build the share "Exchange" with AGDLP
+         (AGDLP = users go into Global groups, those into Domain Local groups,
+          and those get the Permissions).
+
+Bonus: does anything in the table look strange to you? Write it down too.
 "@
     }
     15 = @{ Title = 'Check the logins in the operations docs (OBJ 1, 5)'; Task = @"
-Before you create the users in AD, you check the user list in $docs.
-The rule for logins: first 3 letters of the first name + first 3 letters of the last name, all lower case,
-ä/ö/ü = ae/oe/ue, leave out spaces. Example: Gerhard Bär -> gerbae
-  1. Enter all users in L15\users.csv with the columns FirstName, LastName, Login, Department
-  2. Write a script L15\check.ps1 that calculates the expected login for every line according to the rule
-  3. Write all logins from the docs that do NOT follow the rule into L15\deviations.txt (one per line, spelled as in the docs)
+GOAL: Find user logins that break the naming rule.
+(Login = the user name to sign in.)
+
+The rule: first 3 letters of the first name + first 3 letters of the last name,
+all small letters, ä/ö/ü become ae/oe/ue, no spaces.
+Example: Gerhard Bär -> ger + bae -> gerbae
+
+Step 1 - Copy all users from $docs
+         into L15\users.csv with the columns: FirstName, LastName, Login, Department
+Step 2 - Write a script L15\check.ps1 that builds the correct login for every line.
+Step 3 - Compare. Write every login that does NOT follow the rule into
+         L15\deviations.txt (one per line, written exactly like in the list).
+
 Hint: .Substring(0,3), .ToLower(), -replace 'ä','ae'
 "@
     }

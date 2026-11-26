@@ -3,6 +3,9 @@
 What changed in each version. The newest version is at the top.
 In the VM you get the latest version with the **Update** button in the Lab Trainer.
 
+## Beta 0.6 – 26.11.2026
+- **Easier tasks:** all 15 task texts are rewritten in simple English, with a GOAL line, numbered steps and short explanations of technical words.
+
 ## Beta 0.5 – 25.11.2026
 - **New:** everything is in **English** now: Lab Trainer, all 15 labs, documents, README.
   The files you create in the labs now have English names (e.g. `notes.md`, `users.csv`). Labs started with an older version may need to be started again.

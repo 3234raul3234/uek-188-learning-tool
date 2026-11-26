@@ -1,5 +1,5 @@
 ﻿# Window for lab188.ps1: choose, start, open folder, check
-$version = 'Beta 0.5'  # increase with every change and add to CHANGELOG.md
+$version = 'Beta 0.6'  # increase with every change and add to CHANGELOG.md
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $lab = Join-Path $PSScriptRoot 'lab188.ps1'
